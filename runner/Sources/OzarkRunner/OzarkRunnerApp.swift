@@ -25,6 +25,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Bring app to front above all other windows
         NSApplication.shared.activate(ignoringOtherApps: true)
 
+        // Set the app icon for the Dock
+        if let root = ProcessInfo.processInfo.environment["OZARK_PROJECT_ROOT"],
+           let icon = NSImage(contentsOfFile: "\(root)/logo.png") {
+            NSApplication.shared.applicationIconImage = icon
+        }
+
         // Style the window for liquid glass
         if let window = NSApplication.shared.windows.first {
             window.titlebarAppearsTransparent = true

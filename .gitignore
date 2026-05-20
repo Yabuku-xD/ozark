@@ -27,3 +27,8 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Unused scratch files
+theme.css
+tokens.json
+variables.css

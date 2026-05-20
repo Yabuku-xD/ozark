@@ -28,11 +28,12 @@ if [[ "$(uname)" == "Darwin" ]] && command -v swift &>/dev/null; then
         echo -e "${GREY}  │ ${line}${RESET}"
     done; then
         echo ""
-        echo -e "${SIENNA}  ▶${RESET}${CREAM}  Launching Ozark Runner${RESET}"
+        echo -e "${SIENNA}  ▶${RESET}${CREAM}  Launching Ozark${RESET}"
         echo ""
 
         # Launch the compiled SwiftUI app
-        .build/release/OzarkRunner &
+        cp .build/release/OzarkRunner .build/release/Ozark
+        .build/release/Ozark &
         RUNNER_PID=$!
 
         # Wait for the runner to exit

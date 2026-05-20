@@ -27,7 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Set the app icon for the Dock
         if let root = ProcessInfo.processInfo.environment["OZARK_PROJECT_ROOT"],
-           let icon = NSImage(contentsOfFile: "\(root)/logo.png") {
+           let icon = NSImage(contentsOfFile: "\(root)/assets/logo.png") {
             NSApplication.shared.applicationIconImage = icon
         }
 

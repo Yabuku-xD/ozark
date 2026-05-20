@@ -66,17 +66,6 @@ curl -s -X POST http://127.0.0.1:8787/api/agents/import \
   -d '{"path": "/path/to/your/config.json"}'
 ```
 
-## Display Page (Vercel)
-
-The `frontend/` directory contains a React/Vite static site showcasing Ozark's features. Deploy to Vercel:
-
-```bash
-cd frontend
-npx vercel
-```
-
-This is a showcase page only — no backend required.
-
 ## Using the App
 
 1. Click `RUN` or `Run simulation`.
@@ -85,7 +74,6 @@ This is a showcase page only — no backend required.
 4. Use `Preview scenarios` to inspect generated tests.
 5. Use `Run simulation` to execute the suite.
 6. Use `Load history` to review previous local runs.
-
 
 ## API
 

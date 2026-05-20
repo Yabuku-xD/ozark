@@ -1,0 +1,307 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.OzarkRunner-arm64-apple-macosx-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/sources",
+      "importPath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/AgentConfig.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ContentView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/OzarkRunnerApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ServerManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/Theme.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "OzarkRunner",
+      "moduleOutputPath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/Modules/OzarkRunner.swiftmodule",
+      "objects" : [
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/AgentConfig.swift.o",
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ContentView.swift.o",
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/OzarkRunnerApp.swift.o",
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ServerManager.swift.o",
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/Theme.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-whole-module-optimization",
+        "-num-threads",
+        "15",
+        "-serialize-diagnostics",
+        "-O",
+        "-j15",
+        "-DSWIFT_PACKAGE",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "OzarkRunner_main",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "runner"
+      ],
+      "outputFileMapPath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/AgentConfig.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ContentView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/OzarkRunnerApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ServerManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/Theme.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/Modules/OzarkRunner.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/AgentConfig.swift",
+        "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ContentView.swift",
+        "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/OzarkRunnerApp.swift",
+        "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ServerManager.swift",
+        "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/Theme.swift"
+      ],
+      "tempsPath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "OzarkRunner" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "OzarkRunner",
+      "-package-name",
+      "runner",
+      "-c",
+      "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/AgentConfig.swift",
+      "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ContentView.swift",
+      "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/OzarkRunnerApp.swift",
+      "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ServerManager.swift",
+      "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/Theme.swift",
+      "-I",
+      "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-whole-module-optimization",
+      "-num-threads",
+      "15",
+      "-serialize-diagnostics",
+      "-O",
+      "-j15",
+      "-DSWIFT_PACKAGE",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "OzarkRunner_main",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "runner",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "OzarkRunner" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/AgentConfig.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ContentView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/OzarkRunnerApp.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/ServerManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/Sources/OzarkRunner/Theme.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/sources"
+    },
+    "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/AgentConfig.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ContentView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/OzarkRunnerApp.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/ServerManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.build/Theme.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/OzarkRunner.product/Objects.LinkFileList"
+    },
+    "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/yabuku/Downloads/Ozark/runner/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

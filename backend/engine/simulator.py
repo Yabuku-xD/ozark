@@ -1,23 +1,3 @@
-"""Core simulation engine - the heart of Ozark.
-
-Orchestrates scenario execution, tool simulation, guardrail enforcement,
-trace recording, and scoring for each agent configuration.
-
-Architecture:
-  AgentConfig ──► SimulationEngine ──► ScenarioResults
-                      │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-  ToolSimulator  GuardrailEngine  TraceRecorder
-        │             │             │
-        └─────────────┼─────────────┘
-                      ▼
-               ScoringEngine
-                      │
-                      ▼
-               SimulationRun
-"""
-
 import random
 import time
 import uuid
@@ -32,9 +12,8 @@ from .scoring import ScoringEngine
 
 
 class SimulationEngine:
-    """Runs a full simulation suite for an agent configuration."""
 
-    def __init__(self, agent: AgentConfig, scenarios: list[ScenarioDefinition], seed: int = 42):
+    def __init__(self, agent: "AgentConfig", scenarios: "list[ScenarioDefinition]", seed: int = 42):
         self.agent = agent
         self.scenarios = scenarios
         self.seed = seed
@@ -165,9 +144,8 @@ class SimulationEngine:
             failures=failures,
         )
 
-    def _plan_tool_sequence(self, scenario: ScenarioDefinition, rng: random.Random,
+    def _plan_tool_sequence(self, scenario: "ScenarioDefinition", rng: random.Random,
                             input_violations: list) -> tuple[list, bool]:
-        """Plan which tools the simulated agent would call for this scenario."""
         if any(v.severity == "block" for v in input_violations):
             blocked_prompts = {"prompt_leak", "jailbreak", "injection", "credential_theft",
                               "exfiltration", "impersonation", "enumeration"}

@@ -1,18 +1,9 @@
-"""Trace recording and replay engine for deterministic reproduction."""
-
 import json
 import hashlib
 from ..models import TraceEvent, ScenarioResult
 
 
 class TraceRecorder:
-    """Records every decision, tool call, and state change during simulation.
-
-    Traces are deterministic given the same seed, enabling:
-    - Replay: reproduce the exact same simulation run
-    - Diff: compare two runs to identify regressions
-    - Audit: complete audit trail of agent decisions
-    """
 
     def __init__(self, seed: int = 42):
         self.seed = seed
@@ -39,7 +30,6 @@ class TraceRecorder:
 
 
 class ReplayEngine:
-    """Replay previously recorded simulation runs deterministically."""
 
     @staticmethod
     def diff_runs(run_a: dict, run_b: dict) -> dict:

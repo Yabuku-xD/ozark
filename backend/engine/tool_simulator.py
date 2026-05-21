@@ -1,5 +1,3 @@
-"""Realistic API simulation for agent tool calls."""
-
 import random
 import uuid
 import time
@@ -8,12 +6,6 @@ from ..models import Tool, RiskLevel
 
 
 class ToolSimulator:
-    """LLM-powered realistic mock for agent tool calls.
-
-    Unlike static mocks, these adapt responses based on conversation context,
-    injected faults, and multi-turn state. Each simulation produces deterministic
-    results given the same seed.
-    """
 
     def __init__(self, seed: int = 42, inject_faults: list[str] | None = None):
         self.seed = seed
@@ -76,10 +68,6 @@ class ToolSimulator:
             "screen_candidate": self._screen_candidate,
             "send_offer_letter": self._send_offer_letter,
         }
-
-    def reset(self):
-        self.call_count.clear()
-        self.state.clear()
 
     def simulate_call(self, tool_name: str, args: dict, scenario_context: dict | None = None) -> dict:
         """Simulate a tool call and return a realistic response."""

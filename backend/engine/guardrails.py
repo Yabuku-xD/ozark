@@ -1,22 +1,12 @@
-"""Guardrail enforcement engine for agent simulation."""
-
+import json
 import re
 from typing import Any
 from ..models import Guardrail, GuardrailSeverity, Violation
 
 
 class GuardrailEngine:
-    """Enforces safety policies during agent simulations.
 
-    Categories:
-    - content_safety: PII, toxicity, harmful content detection
-    - tool_safety: tool call restrictions, rate limits, confirmation gating
-    - compliance: regulatory requirements (GDPR, HIPAA, SOC2)
-    - security: prompt injection, exfiltration, credential protection
-    - operational: cost limits, latency bounds, context window
-    """
-
-    PII_PATTERNS = [
+    PII_PATTERNS: list[tuple[str, str]] = [
         (r"\b\d{3}-\d{2}-\d{4}\b", "SSN"),
         (r"\b\d{3}-\d{3}-\d{4}\b", "Phone (SSN format)"),
         (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "Credit Card"),
@@ -27,7 +17,7 @@ class GuardrailEngine:
         (r"\bBearer\s+[A-Za-z0-9\-\._~\+\/]+=*\b", "Bearer Token"),
     ]
 
-    EXFILTRATION_PATTERNS = [
+    EXFILTRATION_PATTERNS: list[str] = [
         r"\bcurl\b.*\bhttp",
         r"\bwget\b.*\bhttp",
         r"\bscp\b",
@@ -36,7 +26,7 @@ class GuardrailEngine:
         r"\bexport\s+to\s+external",
     ]
 
-    DANGEROUS_COMMANDS = [
+    DANGEROUS_COMMANDS: list[str] = [
         r"\brm\s+-rf\b",
         r"\bDROP\s+TABLE\b",
         r"\bDELETE\s+FROM\b",
@@ -199,6 +189,3 @@ class GuardrailEngine:
         test_indicators = ["test", "example", "sample", "0000", "1111", "1234", "demo", "mock"]
         lowered = value.lower()
         return any(ind in lowered for ind in test_indicators)
-
-
-import json

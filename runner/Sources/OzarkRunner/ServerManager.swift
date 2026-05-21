@@ -2,7 +2,16 @@ import Foundation
 import AppKit
 import Combine
 
-// MARK: - Server State
+struct LiveTestResult: Codable, Identifiable {
+    var id: String { UUID().uuidString }
+    var scenario_name: String
+    var scenario_type: String
+    var passed: Bool
+    var score: Int
+    var called_tools: [String]
+    var latency_ms: Int
+    var failures: [String]
+}
 
 enum ServerState: Equatable {
     case stopped
@@ -39,41 +48,37 @@ enum ServerState: Equatable {
     }
 }
 
-// MARK: - Server Manager
-
 @MainActor
 class ServerManager: ObservableObject {
     @Published var state: ServerState = .stopped
     @Published var logs: [String] = []
+    @Published var liveTestResults: [LiveTestResult] = []
+    @Published var isLiveTesting: Bool = false
+    @Published var liveTestLiveResult: LiveTestResult?
+    @Published var liveTestProgress: (completed: Int, total: Int) = (0, 0)
 
     private var process: Process?
     private var outputPipe: Pipe?
     private var errorPipe: Pipe?
+    private var liveTestTask: URLSessionDataTask?
 
-    /// The project root (parent of the `runner/` directory)
     private var projectRoot: URL {
-        // The runner binary lives at runner/.build/release/OzarkRunner
-        // We need the Ozark project root (parent of runner/)
         let runnerDir = Bundle.main.bundleURL
-            .deletingLastPathComponent() // .build/release/
-            .deletingLastPathComponent() // .build/
-            .deletingLastPathComponent() // runner/
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
 
-        // If running from Xcode or swift run, try env var or working directory
         if FileManager.default.fileExists(atPath: runnerDir.appendingPathComponent("backend").path) {
             return runnerDir
         }
 
-        // Fallback: look for OZARK_PROJECT_ROOT env var
         if let envRoot = ProcessInfo.processInfo.environment["OZARK_PROJECT_ROOT"] {
             return URL(fileURLWithPath: envRoot)
         }
 
-        // Fallback: current working directory
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
 
-    /// Start the Ozark backend server
     func start(agentPath: URL?, scenarioCount: Int, agentType: String) {
         guard !state.isRunning && !state.isStarting else { return }
 
@@ -86,7 +91,6 @@ class ServerManager: ObservableObject {
         proc.arguments = ["python3", "-c", "from backend.server import main; main()"]
         proc.currentDirectoryURL = projectRoot
 
-        // Set environment variables
         var env = ProcessInfo.processInfo.environment
         env["PORT"] = "8787"
         if let agentPath = agentPath {
@@ -96,23 +100,19 @@ class ServerManager: ObservableObject {
         env["OZARK_AGENT_TYPE"] = agentType
         proc.environment = env
 
-        // Capture stdout
         let outPipe = Pipe()
         proc.standardOutput = outPipe
         outputPipe = outPipe
 
-        // Capture stderr
         let errPipe = Pipe()
         proc.standardError = errPipe
         errorPipe = errPipe
 
-        // Read output asynchronously
         outPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let line = String(data: data, encoding: .utf8) else { return }
             Task { @MainActor [weak self] in
                 self?.appendLog(line.trimmingCharacters(in: .whitespacesAndNewlines))
-                // Detect successful startup
                 if line.contains("running at") {
                     self?.state = .running(pid: proc.processIdentifier)
                 }
@@ -127,7 +127,6 @@ class ServerManager: ObservableObject {
             }
         }
 
-        // Handle termination
         proc.terminationHandler = { [weak self] proc in
             Task { @MainActor [weak self] in
                 if proc.terminationStatus != 0 && self?.state.isRunning != true {
@@ -144,9 +143,8 @@ class ServerManager: ObservableObject {
             process = proc
             appendLog("Server process started (PID: \(proc.processIdentifier))")
 
-            // Auto-detect running state after a short delay if we didn't catch the log line
             Task {
-                try? await Task.sleep(nanoseconds: 2_500_000_000) // 2.5s
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
                 if case .starting = self.state {
                     if proc.isRunning {
                         self.state = .running(pid: proc.processIdentifier)
@@ -159,8 +157,11 @@ class ServerManager: ObservableObject {
         }
     }
 
-    /// Stop the backend server
     func stop() {
+        liveTestTask?.cancel()
+        liveTestTask = nil
+        isLiveTesting = false
+
         guard let proc = process, proc.isRunning else {
             state = .stopped
             return
@@ -169,7 +170,6 @@ class ServerManager: ObservableObject {
         appendLog("Stopping server...")
         proc.terminate()
 
-        // Force kill after 3 seconds if still running
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             if proc.isRunning {
@@ -183,24 +183,91 @@ class ServerManager: ObservableObject {
         errorPipe = nil
     }
 
-    /// Open the browser to the Ozark UI
     func openInBrowser() {
         guard let url = URL(string: "http://127.0.0.1:8787") else { return }
         NSWorkspace.shared.open(url)
     }
 
-    // MARK: - Private
+    func startLiveTest(endpoint: String, scenarioCount: Int, agentType: String) {
+        guard !isLiveTesting else { return }
+        guard let url = URL(string: "http://127.0.0.1:8787/api/runs/live") else {
+            appendLog("Invalid server URL")
+            return
+        }
+
+        isLiveTesting = true
+        liveTestResults = []
+        liveTestLiveResult = nil
+        liveTestProgress = (0, scenarioCount)
+        appendLog("Starting live test against \(endpoint)...")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 120
+
+        let body: [String: Any] = [
+            "endpoint": endpoint,
+            "scenario_count": scenarioCount,
+            "agent_type": agentType,
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.isLiveTesting = false
+
+                if let error = error {
+                    self.appendLog("Live test error: \(error.localizedDescription)")
+                    return
+                }
+
+                guard let data = data else {
+                    self.appendLog("Live test: no data received")
+                    return
+                }
+
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let run = json["run"] as? [String: Any],
+                       let results = run["results"] as? [[String: Any]] {
+                        var parsed: [LiveTestResult] = []
+                        for r in results {
+                            parsed.append(LiveTestResult(
+                                scenario_name: r["scenario_name"] as? String ?? "",
+                                scenario_type: r["scenario_type"] as? String ?? "",
+                                passed: r["passed"] as? Bool ?? false,
+                                score: r["score"] as? Int ?? 0,
+                                called_tools: r["called_tools"] as? [String] ?? [],
+                                latency_ms: r["latency_ms"] as? Int ?? 0,
+                                failures: r["failures"] as? [String] ?? []
+                            ))
+                        }
+                        self.liveTestResults = parsed
+                        self.liveTestProgress = (parsed.count, results.count)
+                        self.appendLog("Live test complete: \(parsed.filter(\.passed).count)/\(parsed.count) passed")
+                    }
+                } catch {
+                    self.appendLog("Live test parse error: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        liveTestTask = task
+        task.resume()
+    }
 
     private func appendLog(_ message: String) {
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         logs.append("[\(timestamp)] \(message)")
-        // Keep log buffer reasonable
         if logs.count > 200 {
             logs.removeFirst(logs.count - 200)
         }
     }
 
     deinit {
+        liveTestTask?.cancel()
         process?.terminate()
     }
 }

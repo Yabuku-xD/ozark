@@ -4,6 +4,14 @@ node_modules/
 __pycache__/
 *.py[cod]
 *.pyo
+*.egg-info/
+
+# SQLite
+data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
 
 # Swift
 .build/

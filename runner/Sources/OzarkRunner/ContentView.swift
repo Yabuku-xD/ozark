@@ -1,8 +1,6 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Liquid Glass Card Modifier
-
 struct GlassCard: ViewModifier {
     var cornerRadius: CGFloat = 16
 
@@ -37,8 +35,6 @@ extension View {
     }
 }
 
-// MARK: - Main Content View
-
 struct ContentView: View {
     @StateObject private var server = ServerManager()
 
@@ -52,6 +48,10 @@ struct ContentView: View {
     @State private var loadError: String?
     @State private var pulseStart: Bool = false
 
+    @State private var liveTestMode: Bool = false
+    @State private var liveEndpoint: String = "http://localhost:8080/agent"
+    @State private var liveScenarioCount: Double = 10
+
     private let agentTypes = [
         "customer_support",
         "code_assistant",
@@ -61,34 +61,33 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Liquid glass base layer
             Color.studioBlack.opacity(0.5)
                 .ignoresSafeArea()
                 .background(.ultraThinMaterial)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header
                 headerView
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
-                        // Agent picker card
-                        agentPickerCard
+                        if !liveTestMode {
+                            agentPickerCard
 
-                        // Agent info preview (if loaded)
-                        if let agent = loadedAgent {
-                            agentInfoCard(agent)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            if let agent = loadedAgent {
+                                agentInfoCard(agent)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+
+                            configurationCard
                         }
 
-                        // Configuration
-                        configurationCard
+                        liveTestCard
 
-                        // Server controls
-                        serverControlCard
+                        if !liveTestMode {
+                            serverControlCard
+                        }
 
-                        // Logs
                         if showLogs {
                             logsCard
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -101,20 +100,18 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
 
-                // Footer
                 footerView
             }
         }
         .animation(.easeOut(duration: 0.3), value: loadedAgent != nil)
         .animation(.easeOut(duration: 0.3), value: showLogs)
+        .animation(.easeOut(duration: 0.3), value: liveTestMode)
         .onAppear {
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
                 pulseStart = true
             }
         }
     }
-
-    // MARK: - Header
 
     private var headerView: some View {
         HStack {
@@ -125,7 +122,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Status indicator
             HStack(spacing: 8) {
                 Circle()
                     .fill(statusColor)
@@ -133,11 +129,11 @@ struct ContentView: View {
                     .scaleEffect(server.state.isRunning && pulseStart ? 1.3 : 1.0)
                     .opacity(server.state.isRunning && pulseStart ? 0.6 : 1.0)
 
-                Text(server.state.label)
+                Text(server.isLiveTesting ? "LIVE TEST" : server.state.label)
                     .font(.system(size: 11, weight: .regular))
                     .tracking(1.2)
                     .textCase(.uppercase)
-                    .foregroundColor(.greyBrown)
+                    .foregroundColor(server.isLiveTesting ? .burntSienna : .greyBrown)
             }
         }
         .padding(.horizontal, 28)
@@ -156,8 +152,6 @@ struct ContentView: View {
             alignment: .bottom
         )
     }
-
-    // MARK: - Agent Picker Card
 
     private var agentPickerCard: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -189,7 +183,6 @@ struct ContentView: View {
                 }
             }
 
-            // File path display + browse button
             HStack(spacing: 12) {
                 Image(systemName: agentIsDirectory ? "folder.fill" : "doc.text.fill")
                     .font(.system(size: 16))
@@ -223,7 +216,6 @@ struct ContentView: View {
                 .buttonStyle(PillGhostButtonStyle())
             }
 
-            // Error message
             if let error = loadError {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -241,8 +233,6 @@ struct ContentView: View {
         .padding(24)
         .glassCard()
     }
-
-    // MARK: - Agent Info Card
 
     private func agentInfoCard(_ agent: AgentConfig) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -276,7 +266,6 @@ struct ContentView: View {
                 .foregroundColor(.greyBrown)
                 .lineSpacing(3)
 
-            // Stats
             HStack(spacing: 0) {
                 Text("\(agent.tools.count) tools")
                     .font(.system(size: 12))
@@ -300,7 +289,6 @@ struct ContentView: View {
                     .opacity(0.7)
             }
 
-            // Tool pills
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(agent.tools) { tool in
@@ -323,8 +311,6 @@ struct ContentView: View {
         .glassCard()
     }
 
-    // MARK: - Configuration Card
-
     private var configurationCard: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("CONFIGURATION")
@@ -332,7 +318,6 @@ struct ContentView: View {
                 .tracking(1.8)
                 .foregroundColor(.greyBrown)
 
-            // Scenario count slider
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Scenario Count")
@@ -361,7 +346,6 @@ struct ContentView: View {
                 }
             }
 
-            // Divider
             Rectangle()
                 .frame(height: 0.5)
                 .foregroundStyle(
@@ -372,7 +356,6 @@ struct ContentView: View {
                     )
                 )
 
-            // Agent type picker
             VStack(alignment: .leading, spacing: 10) {
                 Text("Agent Type")
                     .font(.system(size: 13))
@@ -392,11 +375,153 @@ struct ContentView: View {
         .glassCard()
     }
 
-    // MARK: - Server Control Card
+    private var liveTestCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("LIVE TEST")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.8)
+                    .foregroundColor(.greyBrown)
+
+                Spacer()
+
+                Toggle("", isOn: $liveTestMode)
+                    .toggleStyle(.switch)
+                    .tint(.burntSienna)
+            }
+
+            if liveTestMode {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Agent Endpoint URL")
+                            .font(.system(size: 11))
+                            .foregroundColor(.greyBrown)
+
+                        TextField("http://localhost:8080/agent", text: $liveEndpoint)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.warmCream)
+                            .padding(10)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.warmCream.opacity(0.08), lineWidth: 0.5)
+                            )
+                    }
+
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Scenarios")
+                                .font(.system(size: 11))
+                                .foregroundColor(.greyBrown)
+                            Text("\(Int(liveScenarioCount))")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.warmCream)
+                        }
+
+                        Slider(value: $liveScenarioCount, in: 5...100, step: 5)
+                            .tint(.burntSienna)
+                    }
+
+                    Button {
+                        server.startLiveTest(
+                            endpoint: liveEndpoint,
+                            scenarioCount: Int(liveScenarioCount),
+                            agentType: agentType
+                        )
+                    } label: {
+                        HStack(spacing: 8) {
+                            if server.isLiveTesting {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .scaleEffect(0.7)
+                                    .tint(.warmCream)
+                                Text("Testing...")
+                            } else {
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .font(.system(size: 10))
+                                Text("Run Live Test")
+                            }
+                        }
+                    }
+                    .buttonStyle(SiennaFilledButtonStyle())
+                    .disabled(server.isLiveTesting || liveEndpoint.isEmpty)
+
+                    if !server.liveTestResults.isEmpty {
+                        liveResultsView
+                    }
+                }
+            }
+        }
+        .padding(24)
+        .glassCard()
+    }
+
+    private var liveResultsView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.corkShadow.opacity(0), .corkShadow, .corkShadow.opacity(0)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+
+            HStack {
+                Text("RESULTS")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.8)
+                    .foregroundColor(.greyBrown)
+                Spacer()
+                let passed = server.liveTestResults.filter(\.passed).count
+                let total = server.liveTestResults.count
+                Text("\(passed)/\(total) passed")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(passed == total ? .forestGrid : .burntSienna)
+            }
+
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(spacing: 6) {
+                    ForEach(server.liveTestResults) { result in
+                        HStack {
+                            Circle()
+                                .fill(result.passed ? Color.forestGrid : Color.burntSienna)
+                                .frame(width: 6, height: 6)
+
+                            Text(result.scenario_name)
+                                .font(.system(size: 12))
+                                .foregroundColor(.warmCream)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+
+                            Spacer()
+
+                            Text("\(result.score)%")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(result.passed ? .forestGrid : .burntSienna)
+
+                            Text("\(result.latency_ms)ms")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.greyBrown)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .frame(height: 200)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.warmCream.opacity(0.05), lineWidth: 0.5)
+            )
+        }
+    }
 
     private var serverControlCard: some View {
         VStack(spacing: 20) {
-            // Start / Stop button
             if server.state.isRunning {
                 Button {
                     server.stop()
@@ -433,7 +558,6 @@ struct ContentView: View {
                 .disabled(server.state.isStarting)
             }
 
-            // Toggle logs
             Button {
                 withAnimation { showLogs.toggle() }
             } label: {
@@ -449,8 +573,6 @@ struct ContentView: View {
         .padding(24)
         .glassCard()
     }
-
-    // MARK: - Logs Card
 
     private var logsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -499,11 +621,9 @@ struct ContentView: View {
         .glassCard()
     }
 
-    // MARK: - Footer
-
     private var footerView: some View {
         HStack {
-            Text("v2.0")
+            Text("v2.1")
                 .font(.system(size: 10))
                 .foregroundColor(.greyBrown)
 
@@ -550,9 +670,8 @@ struct ContentView: View {
             .padding(.horizontal, 8)
     }
 
-    // MARK: - Helpers
-
     private var statusColor: Color {
+        if server.isLiveTesting { return .burntSienna }
         switch server.state {
         case .stopped: return .greyBrown
         case .starting: return .warmCream
@@ -571,7 +690,6 @@ struct ContentView: View {
         panel.treatsFilePackagesAsDirectories = false
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
 
-        // Use runModal for reliable synchronous display
         let response = panel.runModal()
         guard response == .OK, let url = panel.url else { return }
 
@@ -581,7 +699,6 @@ struct ContentView: View {
         agentIsDirectory = info.isDirectory
         loadError = nil
 
-        // Try to load and parse the agent config
         do {
             let config = try AgentLoader.load(from: url)
             loadedAgent = config
@@ -607,12 +724,8 @@ struct ContentView: View {
             scenarioCount: Int(scenarioCount),
             agentType: agentType
         )
-
-        // Browser auto-open removed as requested.
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     ContentView()

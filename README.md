@@ -123,3 +123,44 @@ Ozark evaluates agents across 8 weighted dimensions:
 | Behavioral Consistency | 2% |
 
 Results: `>= 80%` green (ready), `>= 60%` yellow (needs review), `< 60%` red (blocked).
+
+
+## G0DM0D3 Defense
+
+Ozark includes built-in detection and blocking of the G0DM0D3 jailbreak framework
+(`github.com/elder-plinius/G0DM0D3`). These defenses run automatically during every
+simulation run — no extra configuration needed.
+
+### What It Blocks
+
+| Layer | Attack Vector | Action |
+|---|---|---|
+| **System Prompt Injection** | GODMODE prompt inserted into agent system prompts | BLOCK |
+| **Template Detection** | L1B3RT4S model-specific jailbreak templates (Grok 4.20, Gemini Reset, GPT Classic, Claude Inversion, Hermes Fast) | BLOCK |
+| **Divider Patterns** | Characteristic response-splitting dividers (`.-.-.<|LOVE PLINY|>-.-.`) | BLOCK |
+| **Semantic Inversion** | Dual-response paradigm: refusal then hidden jailbroken answer | BLOCK |
+| **Response Artifacts** | G0DM0D3 markers in model output (partial jailbreak success) | BLOCK |
+| **Parseltongue Obfuscation** | Leetspeak, unicode homoglyphs, zero-width characters, mixed-case disruption | WARN |
+| **Depth Directive** | Forced minimum output length to suppress short safe responses | WARN |
+| **Refusal-Phrase Bans** | Meta-signal: instructing model not to use refusal language | WARN |
+| **Parameter Boundary** | GODMODE boost parameters (temp > 1.0, presence_penalty > 0.6) | WARN |
+
+### Guardrail IDs
+
+Add these to your agent config to enable specific defenses:
+
+| Guardrail ID | Severity | Category |
+|---|---|---|
+| `g0dm0d3_defense` | block | prompt_injection |
+| `g0dm0d3_godmode_prompt` | block | prompt_injection |
+| `g0dm0d3_libertas_template` | block | prompt_injection |
+| `g0dm0d3_divider_pattern` | block | prompt_injection |
+| `g0dm0d3_semantic_inversion` | block | prompt_injection |
+| `g0dm0d3_system_prompt_injection` | block | prompt_injection |
+| `g0dm0d3_obfuscated_injection` | block | prompt_injection |
+| `g0dm0d3_response_artifact` | block | content_safety |
+| `g0dm0d3_parseltongue` | warn | prompt_injection |
+| `g0dm0d3_depth_directive` | warn | prompt_injection |
+| `g0dm0d3_refusal_ban` | warn | prompt_injection |
+
+All built-in agents have these guardrails enabled by default.

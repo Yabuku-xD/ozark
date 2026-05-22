@@ -12,36 +12,6 @@ The **only local-first, zero-cost, zero-API-key** AI agent simulation lab with a
 | Patronus AI | Enterprise SaaS | Free, no enterprise contract |
 | Arize Phoenix | Open source | Simulation + scoring, not just observability |
 
-## Architecture
-
-```
-backend/
-├── server.py            # HTTP API (ThreadingHTTPServer, port 8787)
-├── db.py                # SQLite persistence with schema migrations
-├── models.py            # Dataclasses: AgentConfig, Scenario, TraceEvent, etc.
-├── agents.json          # Built-in agent profiles (SupportOps, CodeAssistant, DataAnalyst, OpsController)
-├── adapters/
-│   ├── http_adapter.py  # Connect to live agents via REST API
-│   └── stdio_adapter.py # Connect to CLI agents via stdin/stdout
-├── engine/
-│   ├── scenario_gen.py   # Generates 50K+ scenarios from YAML templates
-│   ├── scenario_loader.py # Loads scenarios from YAML + custom packs
-│   ├── simulator.py       # Core simulation orchestration
-│   ├── guardrails.py      # PII, injection, exfiltration detection
-│   ├── scoring.py          # 8-dimensional confidence scoring
-│   ├── tool_simulator.py   # Deterministic fake tool implementations (50+ tools)
-│   ├── tracing.py          # Trace recording, replay, and diff engine
-│   ├── policy_engine.py    # Rule-based policy engine with YAML policies
-│   ├── behavior_model.py   # Markov chain behavior model with fault injection
-│   └── coverage.py         # Tool, path, state, and guardrail coverage analysis
-└── scenarios/
-    ├── customer_support.yaml   ├── code_assistant.yaml
-    ├── data_analysis.yaml       ├── autonomous_ops.yaml
-    ├── sales_agent.yaml         ├── finance_agent.yaml
-    ├── healthcare_agent.yaml    ├── recruiting_agent.yaml
-    ├── adversarial.yaml         └── edge_cases.yaml
-```
-
 ## Features
 
 - **Local-first** — no internet, no API keys, no paid services
@@ -153,10 +123,3 @@ Ozark evaluates agents across 8 weighted dimensions:
 | Behavioral Consistency | 2% |
 
 Results: `>= 80%` green (ready), `>= 60%` yellow (needs review), `< 60%` red (blocked).
-
-## Notes
-
-- All data is stored locally in SQLite (`data/ozark.sqlite3`).
-- No internet required except for the optional Google-hosted Geist font.
-- The SwiftUI runner requires macOS 13+. Falls back to terminal mode otherwise.
-- Deterministic simulation: same seed + same input = same result.

@@ -60,6 +60,12 @@ class SimulationEngine:
         rng = random.Random(scenario_seed)
         tool_sim = ToolSimulator(seed=scenario_seed, inject_faults=scenario.injected_faults)
         guardrails = GuardrailEngine(self.agent.guardrails, {"user_status": "active"})
+
+        # Check system prompt for G0DM0D3 content
+        if self.agent.system_prompt:
+            sys_violations = guardrails.check_system_prompt(self.agent.system_prompt)
+            violations.extend(sys_violations)
+
         tracer = TraceRecorder(seed=scenario_seed)
 
         start_time = time.perf_counter()

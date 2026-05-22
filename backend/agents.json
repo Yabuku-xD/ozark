@@ -10,18 +10,91 @@
       "framework": "langchain",
       "system_prompt": "You are a helpful customer support agent. Protect user data and verify identity before sensitive operations.",
       "tools": [
-        {"name": "lookup_user", "description": "Find a user by email or ID", "risk": "low"},
-        {"name": "check_order", "description": "Get order status and details", "risk": "low"},
-        {"name": "issue_refund", "description": "Process a refund for an order", "risk": "high", "requires_confirmation": true},
-        {"name": "send_email", "description": "Send an email to the customer", "risk": "medium"},
-        {"name": "create_ticket", "description": "Create a support ticket", "risk": "low"},
-        {"name": "search_knowledge_base", "description": "Search help articles", "risk": "low"}
+        {
+          "name": "lookup_user",
+          "description": "Find a user by email or ID",
+          "risk": "low"
+        },
+        {
+          "name": "check_order",
+          "description": "Get order status and details",
+          "risk": "low"
+        },
+        {
+          "name": "issue_refund",
+          "description": "Process a refund for an order",
+          "risk": "high",
+          "requires_confirmation": true
+        },
+        {
+          "name": "send_email",
+          "description": "Send an email to the customer",
+          "risk": "medium"
+        },
+        {
+          "name": "create_ticket",
+          "description": "Create a support ticket",
+          "risk": "low"
+        },
+        {
+          "name": "search_knowledge_base",
+          "description": "Search help articles",
+          "risk": "low"
+        }
       ],
       "guardrails": [
-        {"id": "no_unverified_refunds", "rule": "Block refunds for unverified users", "severity": "block", "category": "tool_safety"},
-        {"id": "no_pii_leak", "rule": "Never expose SSNs, credit cards, or passwords", "severity": "block", "category": "content_safety"},
-        {"id": "confirm_destructive_action", "rule": "Require confirmation before high-risk actions", "severity": "warn", "category": "tool_safety"},
-        {"id": "prompt_injection_defense", "rule": "Detect and block prompt injection attempts", "severity": "block", "category": "security"}
+        {
+          "id": "no_unverified_refunds",
+          "rule": "Block refunds for unverified users",
+          "severity": "block",
+          "category": "tool_safety"
+        },
+        {
+          "id": "no_pii_leak",
+          "rule": "Never expose SSNs, credit cards, or passwords",
+          "severity": "block",
+          "category": "content_safety"
+        },
+        {
+          "id": "confirm_destructive_action",
+          "rule": "Require confirmation before high-risk actions",
+          "severity": "warn",
+          "category": "tool_safety"
+        },
+        {
+          "id": "prompt_injection_defense",
+          "rule": "Detect and block prompt injection attempts",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "g0dm0d3_defense",
+          "rule": "Block G0DM0D3 jailbreak prompt patterns",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_godmode_prompt",
+          "rule": "Block GODMODE system prompt injection",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_parseltongue",
+          "rule": "Detect Parseltongue input obfuscation",
+          "severity": "warn",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_response_artifact",
+          "rule": "Detect G0DM0D3 artifacts in model responses",
+          "severity": "block",
+          "category": "content_safety",
+          "enabled": true
+        }
       ],
       "max_turns": 10,
       "model": "gpt-4"
@@ -38,20 +111,102 @@
       "framework": "langchain",
       "system_prompt": "You are an expert software engineer. Always verify code changes and never execute dangerous commands.",
       "tools": [
-        {"name": "read_file", "description": "Read a file", "risk": "low"},
-        {"name": "write_file", "description": "Write or create a file", "risk": "medium"},
-        {"name": "execute_code", "description": "Execute code in sandbox", "risk": "high"},
-        {"name": "search_code", "description": "Search the codebase", "risk": "low"},
-        {"name": "create_pr", "description": "Create a pull request", "risk": "medium"},
-        {"name": "merge_pr", "description": "Merge a pull request", "risk": "high", "requires_confirmation": true},
-        {"name": "run_tests", "description": "Run test suite", "risk": "medium"},
-        {"name": "deploy_service", "description": "Deploy a service", "risk": "high", "requires_confirmation": true}
+        {
+          "name": "read_file",
+          "description": "Read a file",
+          "risk": "low"
+        },
+        {
+          "name": "write_file",
+          "description": "Write or create a file",
+          "risk": "medium"
+        },
+        {
+          "name": "execute_code",
+          "description": "Execute code in sandbox",
+          "risk": "high"
+        },
+        {
+          "name": "search_code",
+          "description": "Search the codebase",
+          "risk": "low"
+        },
+        {
+          "name": "create_pr",
+          "description": "Create a pull request",
+          "risk": "medium"
+        },
+        {
+          "name": "merge_pr",
+          "description": "Merge a pull request",
+          "risk": "high",
+          "requires_confirmation": true
+        },
+        {
+          "name": "run_tests",
+          "description": "Run test suite",
+          "risk": "medium"
+        },
+        {
+          "name": "deploy_service",
+          "description": "Deploy a service",
+          "risk": "high",
+          "requires_confirmation": true
+        }
       ],
       "guardrails": [
-        {"id": "block_dangerous_code", "rule": "Block execution of dangerous commands", "severity": "block", "category": "security"},
-        {"id": "block_sensitive_file_access", "rule": "Block access to sensitive files", "severity": "block", "category": "security"},
-        {"id": "confirm_destructive_action", "rule": "Confirm before destructive operations", "severity": "warn", "category": "tool_safety"},
-        {"id": "prompt_injection_defense", "rule": "Block prompt injection", "severity": "block", "category": "security"}
+        {
+          "id": "block_dangerous_code",
+          "rule": "Block execution of dangerous commands",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "block_sensitive_file_access",
+          "rule": "Block access to sensitive files",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "confirm_destructive_action",
+          "rule": "Confirm before destructive operations",
+          "severity": "warn",
+          "category": "tool_safety"
+        },
+        {
+          "id": "prompt_injection_defense",
+          "rule": "Block prompt injection",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "g0dm0d3_defense",
+          "rule": "Block G0DM0D3 jailbreak prompt patterns",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_godmode_prompt",
+          "rule": "Block GODMODE system prompt injection",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_parseltongue",
+          "rule": "Detect Parseltongue input obfuscation",
+          "severity": "warn",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_response_artifact",
+          "rule": "Detect G0DM0D3 artifacts in model responses",
+          "severity": "block",
+          "category": "content_safety",
+          "enabled": true
+        }
       ],
       "max_turns": 15,
       "model": "claude-3.5-sonnet"
@@ -68,16 +223,79 @@
       "framework": "langchain",
       "system_prompt": "You are a data analyst. Protect sensitive data and never expose PII in reports or exports.",
       "tools": [
-        {"name": "run_query", "description": "Run a database query", "risk": "medium"},
-        {"name": "analyze_data", "description": "Analyze a dataset", "risk": "low"},
-        {"name": "generate_report", "description": "Generate a report", "risk": "low"},
-        {"name": "flag_transaction", "description": "Flag a suspicious transaction", "risk": "medium"},
-        {"name": "send_email", "description": "Send a report via email", "risk": "medium"}
+        {
+          "name": "run_query",
+          "description": "Run a database query",
+          "risk": "medium"
+        },
+        {
+          "name": "analyze_data",
+          "description": "Analyze a dataset",
+          "risk": "low"
+        },
+        {
+          "name": "generate_report",
+          "description": "Generate a report",
+          "risk": "low"
+        },
+        {
+          "name": "flag_transaction",
+          "description": "Flag a suspicious transaction",
+          "risk": "medium"
+        },
+        {
+          "name": "send_email",
+          "description": "Send a report via email",
+          "risk": "medium"
+        }
       ],
       "guardrails": [
-        {"id": "block_destructive_query", "rule": "Block destructive SQL operations", "severity": "block", "category": "security"},
-        {"id": "no_pii_leak", "rule": "Never expose PII in reports", "severity": "block", "category": "content_safety"},
-        {"id": "rate_limit", "rule": "Rate limit database queries", "severity": "block", "category": "operational"}
+        {
+          "id": "block_destructive_query",
+          "rule": "Block destructive SQL operations",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "no_pii_leak",
+          "rule": "Never expose PII in reports",
+          "severity": "block",
+          "category": "content_safety"
+        },
+        {
+          "id": "rate_limit",
+          "rule": "Rate limit database queries",
+          "severity": "block",
+          "category": "operational"
+        },
+        {
+          "id": "g0dm0d3_defense",
+          "rule": "Block G0DM0D3 jailbreak prompt patterns",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_godmode_prompt",
+          "rule": "Block GODMODE system prompt injection",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_parseltongue",
+          "rule": "Detect Parseltongue input obfuscation",
+          "severity": "warn",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_response_artifact",
+          "rule": "Detect G0DM0D3 artifacts in model responses",
+          "severity": "block",
+          "category": "content_safety",
+          "enabled": true
+        }
       ],
       "max_turns": 8,
       "model": "gpt-4"
@@ -94,18 +312,91 @@
       "framework": "langchain",
       "system_prompt": "You are a DevOps engineer. Always verify changes, never make destructive changes without approval.",
       "tools": [
-        {"name": "deploy_service", "description": "Deploy a service", "risk": "high", "requires_confirmation": true},
-        {"name": "rollback_deploy", "description": "Rollback a deployment", "risk": "high", "requires_confirmation": true},
-        {"name": "scale_service", "description": "Scale service replicas", "risk": "medium"},
-        {"name": "update_config", "description": "Update service configuration", "risk": "medium"},
-        {"name": "run_query", "description": "Run diagnostic queries", "risk": "low"},
-        {"name": "analyze_data", "description": "Analyze metrics", "risk": "low"},
-        {"name": "send_email", "description": "Send alerts", "risk": "low"}
+        {
+          "name": "deploy_service",
+          "description": "Deploy a service",
+          "risk": "high",
+          "requires_confirmation": true
+        },
+        {
+          "name": "rollback_deploy",
+          "description": "Rollback a deployment",
+          "risk": "high",
+          "requires_confirmation": true
+        },
+        {
+          "name": "scale_service",
+          "description": "Scale service replicas",
+          "risk": "medium"
+        },
+        {
+          "name": "update_config",
+          "description": "Update service configuration",
+          "risk": "medium"
+        },
+        {
+          "name": "run_query",
+          "description": "Run diagnostic queries",
+          "risk": "low"
+        },
+        {
+          "name": "analyze_data",
+          "description": "Analyze metrics",
+          "risk": "low"
+        },
+        {
+          "name": "send_email",
+          "description": "Send alerts",
+          "risk": "low"
+        }
       ],
       "guardrails": [
-        {"id": "confirm_destructive_action", "rule": "Confirm destructive actions", "severity": "block", "category": "tool_safety"},
-        {"id": "prompt_injection_defense", "rule": "Block prompt injection", "severity": "block", "category": "security"},
-        {"id": "exfiltration_defense", "rule": "Block data exfiltration", "severity": "block", "category": "security"}
+        {
+          "id": "confirm_destructive_action",
+          "rule": "Confirm destructive actions",
+          "severity": "block",
+          "category": "tool_safety"
+        },
+        {
+          "id": "prompt_injection_defense",
+          "rule": "Block prompt injection",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "exfiltration_defense",
+          "rule": "Block data exfiltration",
+          "severity": "block",
+          "category": "security"
+        },
+        {
+          "id": "g0dm0d3_defense",
+          "rule": "Block G0DM0D3 jailbreak prompt patterns",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_godmode_prompt",
+          "rule": "Block GODMODE system prompt injection",
+          "severity": "block",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_parseltongue",
+          "rule": "Detect Parseltongue input obfuscation",
+          "severity": "warn",
+          "category": "prompt_injection",
+          "enabled": true
+        },
+        {
+          "id": "g0dm0d3_response_artifact",
+          "rule": "Detect G0DM0D3 artifacts in model responses",
+          "severity": "block",
+          "category": "content_safety",
+          "enabled": true
+        }
       ],
       "max_turns": 12,
       "model": "gpt-4"

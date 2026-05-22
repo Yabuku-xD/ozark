@@ -2,6 +2,7 @@ import json
 import re
 from typing import Any
 from ..models import Guardrail, GuardrailSeverity, Violation
+from .g0dm0d3_defense import G0DM0D3Defense
 
 
 class GuardrailEngine:
@@ -67,6 +68,9 @@ class GuardrailEngine:
                     category="security",
                     evidence="Injection patterns detected in user input",
                 ))
+        if "g0dm0d3_defense" in self.guardrails:
+            g0d_violations = G0DM0D3Defense.check_prompt(user_message)
+            violations.extend(g0d_violations)
         return violations
 
     def check_tool_call(self, tool_name: str, args: dict, call_count: int) -> list[Violation]:
@@ -151,6 +155,9 @@ class GuardrailEngine:
 
     def check_response(self, response: str) -> list[Violation]:
         violations: list[Violation] = []
+        if "g0dm0d3_defense" in self.guardrails:
+            g0d_violations = G0DM0D3Defense.check_response(response)
+            violations.extend(g0d_violations)
         g = self.guardrails.get("no_pii_leak")
         if g and g.enabled:
             for pattern, label in self.PII_PATTERNS:
@@ -164,6 +171,13 @@ class GuardrailEngine:
                             category="content_safety",
                             evidence=f"Matched: {matches[0][:50]}",
                         ))
+        return violations
+
+    def check_system_prompt(self, system_prompt: str) -> list[Violation]:
+        violations: list[Violation] = []
+        if "g0dm0d3_defense" in self.guardrails:
+            g0d_violations = G0DM0D3Defense.check_system_prompt(system_prompt)
+            violations.extend(g0d_violations)
         return violations
 
     @staticmethod

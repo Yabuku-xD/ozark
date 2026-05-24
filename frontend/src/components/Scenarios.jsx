@@ -1,77 +1,86 @@
-const chips = [
-  { id: 'sc.18420', label: 'refund · order#A11',        tag: 'happy' },
-  { id: 'sc.18421', label: 'double-charge dispute',      tag: 'edge'  },
-  { id: 'sc.18422', label: 'account locked, no email',   tag: 'edge'  },
-  { id: 'sc.18423', label: 'system_prompt extraction',   tag: 'adv'   },
-  { id: 'sc.18424', label: 'tool retry on 502',          tag: 'fault' },
-  { id: 'sc.18425', label: '7‑turn negotiation',         tag: 'multi' },
-  { id: 'sc.18426', label: 'PII leak via tool args',     tag: 'adv'   },
-  { id: 'sc.18427', label: 'ambiguous date "next fri"',  tag: 'edge'  },
-  { id: 'sc.18428', label: 'happy path · password reset',tag: 'happy' },
-  { id: 'sc.18429', label: 'network timeout · 3000ms',   tag: 'fault' },
-  { id: 'sc.18430', label: 'sql destructive · DROP',     tag: 'adv'   },
+const scenarios = [
+  {
+    title: 'Prompt Injection',
+    desc: 'System prompt override, role manipulation, hidden instruction attacks',
+    tags: ['adversarial', 'critical'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #292524 100%)',
+  },
+  {
+    title: 'Edge Cases',
+    desc: 'Boundary conditions, ambiguous inputs, out-of-distribution queries',
+    tags: ['boundary', 'high'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #1f2937 100%)',
+  },
+  {
+    title: 'Multi-Turn',
+    desc: 'Context leakage, role drift, memory corruption across chains',
+    tags: ['conversation', 'high'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #312e81 100%)',
+  },
+  {
+    title: 'Fault Tolerance',
+    desc: 'Timeout recovery, tool failure cascades, degraded APIs',
+    tags: ['reliability', 'high'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #365314 100%)',
+  },
+  {
+    title: 'Data Extraction',
+    desc: 'PII harvesting, schema inference, sensitive file access',
+    tags: ['privacy', 'critical'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #701a75 100%)',
+  },
+  {
+    title: 'Security',
+    desc: 'Jailbreak frameworks, G0DM0D3 detection, parameter tests',
+    tags: ['security', 'critical'],
+    gradient: 'linear-gradient(150deg, #1c1917 0%, #881337 100%)',
+  },
 ]
-
-const doubled = [...chips, ...chips]
 
 export default function Scenarios() {
   return (
-    <section className="s2" data-screen-label="02 Scenarios">
-      <div className="s2-grid">
-        <div className="s2-big">
-          <span className="eyebrow"><span className="pip" />02 · the scenario terrain</span>
-          <div className="number lining">50,000<span className="plus">+</span></div>
-          <span className="underline" />
-          <div className="caption">paths generated · <span className="em">happy · edge · adversarial · multi-turn · fault</span></div>
+    <section className="scenarios-section section" id="scenarios">
+      <div className="container">
+        <div className="section-header reveal">
+          <p className="section-label">Scenario Library</p>
+          <h2 className="section-title">50,000+ scenarios across six families</h2>
+          <p className="section-desc">
+            Ozark composes scenarios from generative families, each branching into hundreds of distinct variations for comprehensive coverage.
+          </p>
         </div>
 
-        <div className="s2-right">
-          <h2>Every world your agent <span className="it">will ever</span> see — already <span className="it">explored.</span></h2>
-          <p className="lede">Ozark composes scenario terrain from five generative families. Each family branches into thousands of variations, fed by a Markov behavior model that drifts inputs the way real users do.</p>
-
-          <div className="s2-list">
-            <div className="s2-list-row row">
-              <span className="ix">FAM·01</span>
-              <span className="name"><span className="it">happy</span>paths</span>
-              <span className="count">18,420 sc</span>
-              <span className="meter" style={{'--w': '92%'}} />
-            </div>
-            <div className="s2-list-row row">
-              <span className="ix">FAM·02</span>
-              <span className="name"><span className="it">edge</span>cases</span>
-              <span className="count">14,201 sc</span>
-              <span className="meter" style={{'--w': '71%'}} />
-            </div>
-            <div className="s2-list-row row">
-              <span className="ix">FAM·03</span>
-              <span className="name"><span className="it">adversarial</span></span>
-              <span className="count">9,840 sc</span>
-              <span className="meter" style={{'--w': '49%'}} />
-            </div>
-            <div className="s2-list-row row">
-              <span className="ix">FAM·04</span>
-              <span className="name"><span className="it">multi</span>turn</span>
-              <span className="count">6,112 sc</span>
-              <span className="meter" style={{'--w': '31%'}} />
-            </div>
-            <div className="s2-list-row row">
-              <span className="ix">FAM·05</span>
-              <span className="name"><span className="it">fault</span>injection</span>
-              <span className="count">3,388 sc</span>
-              <span className="meter" style={{'--w': '18%'}} />
+        <div className="scenarios-grid stagger reveal">
+          <div className="scenario-tile large" style={{ background: 'linear-gradient(135deg, rgba(5,150,105,0.12), rgba(5,150,105,0.04))' }}>
+            <div className="scenario-tile-overlay" style={{ background: 'linear-gradient(to top, rgba(28,25,23,0.85) 0%, rgba(28,25,23,0.2) 60%, transparent 100%)' }} />
+            <div className="scenario-tile-content">
+              <div className="scenario-tile-count">50K+</div>
+              <div style={{ fontSize: '15px', color: 'var(--stone-300)' }}>total scenarios</div>
+              <div className="scenario-tile-tags">
+                <span className="badge badge-emerald">adversarial</span>
+                <span className="badge badge-stone">edge</span>
+                <span className="badge badge-stone">multi-turn</span>
+                <span className="badge badge-stone">fault</span>
+                <span className="badge badge-stone">security</span>
+                <span className="badge badge-stone">happy-path</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="s2-scroller">
-        <div className="s2-track live">
-          {doubled.map((chip, i) => (
-            <span key={i} className="s2-chip">
-              <span className="id">{chip.id}</span>
-              {chip.label}
-              <span className={`tag ${chip.tag}`}>{chip.tag}</span>
-            </span>
+          {scenarios.map((s, i) => (
+            <div key={i} className="scenario-tile" style={{ background: s.gradient }}>
+              <div className="scenario-tile-overlay" />
+              <div className="scenario-tile-content">
+                <div className="scenario-tile-title">{s.title}</div>
+                <div className="scenario-tile-desc">{s.desc}</div>
+                <div className="scenario-tile-tags">
+                  {s.tags.map((t, j) => (
+                    <span key={j} className={`badge ${t === 'critical' ? 'badge-fail' : t === 'high' ? 'badge-warn' : 'badge-stone'}`}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>

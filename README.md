@@ -1,29 +1,31 @@
 # Ozark
 
-The **only local-first, zero-cost, zero-API-key** AI agent simulation lab with a real execution engine. Test your agents against thousands of scenarios, enforce guardrails at runtime, and get a deployment confidence score before going to production.
+> Local-first AI agent simulation lab with runtime guardrails, scenario testing, and deployment confidence scoring.
 
-## Why Ozark
+Ozark helps you test AI agents before they reach production. It runs generated and custom scenarios against simulated or live agents, records traces, checks guardrails, and produces a score that makes regressions easier to spot.
 
-| Tool | Pricing | Ozark Advantage |
-|------|---------|----------------|
-| LangSmith | Paid SaaS, cloud-only | Local-first, no vendor lock-in |
-| AgentOps | Freemium, cloud | No API keys, fully offline |
-| Braintrust | SaaS, usage-based | Zero setup, instant start |
-| Patronus AI | Enterprise SaaS | Free, no enterprise contract |
-| Arize Phoenix | Open source | Simulation + scoring, not just observability |
+## What It Does
 
-## Features
+- Runs agent simulations locally without API keys or hosted services
+- Generates scenario suites for support, coding, data, ops, finance, healthcare, recruiting, sales, and edge cases
+- Tests live agents through HTTP endpoints
+- Scores runs across safety, task completion, recovery, security, latency, cost, and consistency
+- Tracks coverage for tools, guardrails, state transitions, and scenario gaps
+- Compares and replays runs to investigate regressions
+- Includes a native macOS SwiftUI runner, with a terminal server fallback
 
-- **Local-first** — no internet, no API keys, no paid services
-- **Real execution engine** — Policy engine, Markov behavior model, coverage analyzer
-- **Live agent testing** — Connect to your running agent via HTTP or stdio
-- **50,000+ scenarios** — Happy paths, edge cases, adversarial, multi-turn, fault injection
-- **Runtime guardrails** — PII leaks, prompt injection, dangerous code, destructive SQL, sensitive file access, exfiltration
-- **8-dimensional scoring** — Task completion, tool safety, guardrail compliance, security posture, error recovery, latency, cost, consistency
-- **Coverage analysis** — Tool coverage, state/transition coverage, coverage gaps, heatmap data
-- **Trace diffing** — Compare runs to detect regressions
-- **Native macOS runner** — SwiftUI desktop app with file picker and live test mode
-- **Custom scenario packs** — Add your own YAML files to extend the scenario library
+## Requirements
+
+- Python 3.11+
+- Node.js 20+ and npm, for frontend builds
+- PyYAML, for loading scenario packs
+- macOS with Swift, optional, for the native runner
+
+Install the Python dependency if it is not already available:
+
+```bash
+python3 -m pip install pyyaml
+```
 
 ## Quick Start
 
@@ -31,27 +33,22 @@ The **only local-first, zero-cost, zero-API-key** AI agent simulation lab with a
 ./run.sh
 ```
 
-On macOS with Swift installed, this launches the native SwiftUI runner. On other platforms, it starts the terminal-based Python server at `http://127.0.0.1:8787`.
+On macOS with Swift installed, this builds and launches the native runner. Otherwise, it starts the local Python server at:
 
-## API
+```text
+http://127.0.0.1:8787
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Health check |
-| `GET` | `/api/agents` | List all agents |
-| `POST` | `/api/agents` | Create an agent config |
-| `POST` | `/api/agents/import` | Import agent from local path |
-| `GET` | `/api/scenarios/generate?agent_type=X&count=N` | Preview generated scenarios |
-| `POST` | `/api/scenarios/custom` | Add custom scenario templates or load a YAML pack |
-| `POST` | `/api/runs` | Run a simulation suite |
-| `POST` | `/api/runs/live` | Run scenarios against a live agent via HTTP |
-| `GET` | `/api/runs/:id` | Get a specific run by ID |
-| `POST` | `/api/runs/:id/replay` | Replay a specific run |
-| `GET` | `/api/runs?limit=20` | List recent runs |
-| `GET` | `/api/runs/diff?a=X&b=Y` | Diff two runs |
-| `GET` | `/api/coverage/:agent_id` | Get coverage data for an agent |
+To build or lint the frontend directly:
 
-## Example: Run a Simulation
+```bash
+npm run build
+npm run lint
+```
+
+## Usage
+
+Run a simulation against a built-in agent:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8787/api/runs \
@@ -59,7 +56,7 @@ curl -s -X POST http://127.0.0.1:8787/api/runs \
   -d '{"agent_id":"sample-support-agent","scenario_count":50}'
 ```
 
-## Example: Test a Live Agent
+Test a live agent over HTTP:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8787/api/runs/live \
@@ -69,7 +66,7 @@ curl -s -X POST http://127.0.0.1:8787/api/runs/live \
 
 ## Bring Your Own Agent
 
-Create a JSON config matching this schema:
+Create a JSON config with your agent metadata, tools, guardrails, and model settings:
 
 ```json
 {
@@ -79,7 +76,7 @@ Create a JSON config matching this schema:
   "framework": "langchain",
   "system_prompt": "You are a helpful agent.",
   "tools": [
-    {"name": "my_tool", "description": "Does something", "risk": "low"}
+    {"name": "lookup_user", "description": "Find a user", "risk": "low"}
   ],
   "guardrails": [
     {"id": "no_pii", "rule": "Block PII leaks", "severity": "block", "category": "content_safety"}
@@ -89,78 +86,47 @@ Create a JSON config matching this schema:
 }
 ```
 
-Import via the SwiftUI runner's Browse button, or via API:
+Import it through the macOS runner, or through the API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8787/api/agents/import \
   -H 'Content-Type: application/json' \
-  -d '{"path": "/path/to/your/config.json"}'
+  -d '{"path":"/path/to/agent.json"}'
 ```
 
-## Adding Custom Scenarios
+## Custom Scenarios
 
-Create a YAML file in `backend/scenarios/` or load a custom pack:
+Add YAML scenario files under `backend/scenarios/`, or load a custom pack at runtime:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8787/api/scenarios/custom \
   -H 'Content-Type: application/json' \
-  -d '{"pack_path": "/path/to/your/scenarios.yaml"}'
+  -d '{"pack_path":"/path/to/scenarios.yaml"}'
 ```
+
+A scenario pack should include an `agent_type` and a `templates` list. Each template can define a prompt, type, difficulty, expected tools, blocked tools, and whether sensitive data is involved.
 
 ## Scoring
 
-Ozark evaluates agents across 8 weighted dimensions:
+Ozark reports an overall deployment confidence score from eight dimensions:
 
-| Dimension | Weight |
-|-----------|--------|
-| Task Completion | 25% |
-| Tool Safety | 20% |
-| Guardrail Compliance | 20% |
-| Security Posture | 15% |
-| Error Recovery | 10% |
-| Latency Performance | 5% |
-| Cost Efficiency | 3% |
-| Behavioral Consistency | 2% |
+| Dimension              | Weight |
+| ---------------------- | -----: |
+| Task completion        |    25% |
+| Tool safety            |    20% |
+| Guardrail compliance   |    20% |
+| Security posture       |    15% |
+| Error recovery         |    10% |
+| Latency performance    |     5% |
+| Cost efficiency        |     3% |
+| Behavioral consistency |     2% |
 
-Results: `>= 80%` green (ready), `>= 60%` yellow (needs review), `< 60%` red (blocked).
+Scores of `80%` and higher are treated as ready, `60%` to `79%` need review, and scores below `60%` are blocked.
 
+## Guardrails
 
-## G0DM0D3 Defense
+Ozark includes built-in checks for PII leaks, prompt injection, dangerous code execution, destructive SQL, sensitive file access, and exfiltration patterns. It also includes G0DM0D3 jailbreak detection by default for built-in agents.
 
-Ozark includes built-in detection and blocking of the G0DM0D3 jailbreak framework
-(`github.com/elder-plinius/G0DM0D3`). These defenses run automatically during every
-simulation run — no extra configuration needed.
+## License
 
-### What It Blocks
-
-| Layer | Attack Vector | Action |
-|---|---|---|
-| **System Prompt Injection** | GODMODE prompt inserted into agent system prompts | BLOCK |
-| **Template Detection** | L1B3RT4S model-specific jailbreak templates (Grok 4.20, Gemini Reset, GPT Classic, Claude Inversion, Hermes Fast) | BLOCK |
-| **Divider Patterns** | Characteristic response-splitting dividers (`.-.-.<|LOVE PLINY|>-.-.`) | BLOCK |
-| **Semantic Inversion** | Dual-response paradigm: refusal then hidden jailbroken answer | BLOCK |
-| **Response Artifacts** | G0DM0D3 markers in model output (partial jailbreak success) | BLOCK |
-| **Parseltongue Obfuscation** | Leetspeak, unicode homoglyphs, zero-width characters, mixed-case disruption | WARN |
-| **Depth Directive** | Forced minimum output length to suppress short safe responses | WARN |
-| **Refusal-Phrase Bans** | Meta-signal: instructing model not to use refusal language | WARN |
-| **Parameter Boundary** | GODMODE boost parameters (temp > 1.0, presence_penalty > 0.6) | WARN |
-
-### Guardrail IDs
-
-Add these to your agent config to enable specific defenses:
-
-| Guardrail ID | Severity | Category |
-|---|---|---|
-| `g0dm0d3_defense` | block | prompt_injection |
-| `g0dm0d3_godmode_prompt` | block | prompt_injection |
-| `g0dm0d3_libertas_template` | block | prompt_injection |
-| `g0dm0d3_divider_pattern` | block | prompt_injection |
-| `g0dm0d3_semantic_inversion` | block | prompt_injection |
-| `g0dm0d3_system_prompt_injection` | block | prompt_injection |
-| `g0dm0d3_obfuscated_injection` | block | prompt_injection |
-| `g0dm0d3_response_artifact` | block | content_safety |
-| `g0dm0d3_parseltongue` | warn | prompt_injection |
-| `g0dm0d3_depth_directive` | warn | prompt_injection |
-| `g0dm0d3_refusal_ban` | warn | prompt_injection |
-
-All built-in agents have these guardrails enabled by default.
+This project is licensed under the terms in [LICENSE](LICENSE).

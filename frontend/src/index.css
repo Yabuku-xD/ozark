@@ -64,7 +64,7 @@ img { display: block; max-width: 100%; }
 }
 
 .brand-mark { display: inline-flex; align-items: center; gap: 9px; font-weight: 520; letter-spacing: -0.02em; }
-.brand-mark img { width: 24px; height: 24px; outline: 1px solid rgba(0, 0, 0, 0.1); outline-offset: 0; }
+.brand-mark img { width: 24px; height: 24px; }
 .nav-links { justify-self: end; display: flex; align-items: center; gap: 3px; opacity: 1; transform: none; pointer-events: auto; }
 .nav-links a, .nav-toggle {
   border: 1px solid transparent;

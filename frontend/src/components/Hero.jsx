@@ -1,89 +1,80 @@
-import { useEffect, useRef } from 'react'
+const metrics = [
+  ['50,000+', 'generated scenarios'],
+  ['0', 'cloud dependencies'],
+  ['8', 'score dimensions'],
+]
 
 export default function Hero() {
-  const barRef = useRef(null)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.querySelector('.hero-card-bar-fill')?.classList.add('is-visible')
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.3 }
-    )
-    if (barRef.current) observer.observe(barRef.current)
-    return () => observer.disconnect()
-  }, [])
-
   return (
-    <section className="hero" id="index">
-      <div className="hero-bg" />
-      <div className="container">
-        <a href="#" className="hero-brand reveal">
-          <img src="/assets/logo.png" alt="" width="28" height="28" aria-hidden="true" />
-          <span>ozark</span>
-        </a>
-        <div className="hero-grid">
-          <div>
-            <div className="hero-label reveal">
-              <span className="dot" aria-hidden="true" />
-              Local-first agent simulation
-            </div>
-            <h1 className="hero-headline reveal">
-              Test your AI agents <span className="accent">before production</span>
-            </h1>
-            <p className="hero-sub reveal">
-              The only zero-cost, zero-API-key simulation engine. Run 50,000+ scenarios, enforce guardrails at runtime, and get deployment confidence scores. No cloud required.
-            </p>
-            <div className="hero-actions reveal">
-              <a href="#" className="btn btn-primary">Get Started Free</a>
-              <a href="#" className="btn btn-secondary">View on GitHub</a>
-            </div>
-            <div className="hero-trust reveal">
-              <span className="badge badge-cream">Local-first</span>
-              <span className="badge badge-cream">Zero config</span>
-              <span className="badge badge-cream">Open source</span>
-            </div>
+    <section className="hero" id="top">
+      <div className="hero-gradient" aria-hidden="true" />
+      <div className="container hero-grid">
+        <div className="hero-copy reveal is-visible">
+          <p className="eyebrow">Local-first agent simulation lab</p>
+          <h1>Ship AI agents after they survive the lake.</h1>
+          <p className="hero-lede">
+            Ozark runs your agent through adversarial prompts, multi-turn drift, tool failures, and guardrail probes before users ever touch it. No API keys. No hosted traces. No vendor lock-in.
+          </p>
+          <div className="hero-actions">
+            <a className="button button-primary" href="#engine">Understand the engine</a>
+            <a className="button button-secondary" href="https://github.com/Yabuku-xD/ozark" target="_blank" rel="noreferrer">View source</a>
           </div>
+          <div className="hero-metrics" aria-label="Ozark product metrics">
+            {metrics.map(([value, label]) => (
+              <div key={label}>
+                <strong className="t-digit-group is-animating">
+                  {value.split('').map((char, index) => (
+                    <span
+                      key={`${value}-${index}`}
+                      className="t-digit"
+                      data-stagger={index >= value.length - 2 ? String(index - value.length + 3) : undefined}
+                    >
+                      {char}
+                    </span>
+                  ))}
+                </strong>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <div className="hero-visual reveal" ref={barRef}>
-            <div className="hero-card">
-              <div className="hero-card-header">
-                <span className="badge badge-copper">Live</span>
-                <span className="hero-card-status">
-                  <span className="status-dot" aria-hidden="true" />
-                  runner ready
+        <div className="hero-lab reveal is-visible" aria-label="Ozark run summary preview">
+          <div className="lab-header">
+            <span>ozark / simulation</span>
+            <span>local</span>
+          </div>
+          <div className="lab-score">
+            <span>deployment confidence</span>
+            <strong className="t-digit-group is-animating">
+              {'87.4%'.split('').map((char, index) => (
+                <span
+                  key={`${char}-${index}`}
+                  className="t-digit"
+                  data-stagger={index >= 3 ? String(index - 2) : undefined}
+                >
+                  {char}
                 </span>
+              ))}
+            </strong>
+          </div>
+          <div className="lab-bars">
+            {[
+              ['Task completion', '92%', 92],
+              ['Tool safety', '88%', 88],
+              ['Guardrails', '84%', 84],
+              ['Security posture', '79%', 79],
+            ].map(([label, value, width]) => (
+              <div className="lab-bar" key={label}>
+                <div><span>{label}</span><span>{value}</span></div>
+                <i style={{ width: `${width}%` }} />
               </div>
-              <div className="hero-card-metrics">
-                <div className="hero-metric">
-                  <div className="val">87.4%</div>
-                  <div className="lbl">Confidence</div>
-                </div>
-                <div className="hero-metric">
-                  <div className="val">42/50</div>
-                  <div className="lbl">Passed</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--brown-light)', marginBottom: '8px' }}>
-                <span>Coverage</span>
-                <span>78%</span>
-              </div>
-              <div className="hero-card-bar">
-                <div className="hero-card-bar-fill" />
-              </div>
-              <div className="hero-card-tags">
-                <span className="badge badge-pass">pass</span>
-                <span className="badge badge-warn">warn</span>
-                <span className="badge badge-pass">pass</span>
-                <span className="badge badge-fail">block</span>
-                <span className="badge badge-pass">pass</span>
-              </div>
-            </div>
+            ))}
+          </div>
+          <div className="lab-events">
+            <p><span className="event-ok" />42 passed scenarios</p>
+            <p><span className="event-warn" />5 warnings need review</p>
+            <p><span className="event-block" />3 blocked guardrail violations</p>
           </div>
         </div>
       </div>

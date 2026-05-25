@@ -23,13 +23,22 @@ class ScenarioLoader:
     _adversarial_cache: list[dict[str, Any]] | None = None
     _edge_case_cache: list[dict[str, Any]] | None = None
 
+    @staticmethod
+    def _resolve_under(base_dir: Path, candidate: str | Path) -> Path:
+        base = base_dir.resolve()
+        path = Path(candidate)
+        resolved = (path if path.is_absolute() else base / path).resolve()
+        if resolved != base and base not in resolved.parents:
+            raise ValueError(f"Path escapes allowed directory: {candidate}")
+        return resolved
+
     @classmethod
     def _load_yaml(cls, filename: str) -> dict:
         import yaml
-        path = SCENARIOS_DIR / filename
+        path = cls._resolve_under(SCENARIOS_DIR, filename)
         if not path.exists():
             return {}
-        with open(path) as f:
+        with path.open(encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
     @classmethod
@@ -95,21 +104,20 @@ class ScenarioLoader:
     @classmethod
     def load_custom_pack(cls, pack_path: str) -> dict[str, list[dict[str, Any]]]:
         import yaml
-        path = Path(pack_path)
+        path = cls._resolve_under(Path.cwd(), pack_path)
         if not path.exists():
             raise FileNotFoundError(f"Scenario pack not found: {pack_path}")
         if path.is_dir():
             templates: dict[str, list[dict[str, Any]]] = {}
             for f in sorted(path.glob("*.yaml")):
-                with open(f) as fh:
+                with f.open(encoding="utf-8") as fh:
                     data = yaml.safe_load(fh) or {}
                 agent_type = data.get("agent_type", f.stem)
                 templates.setdefault(agent_type, []).extend(data.get("templates", []))
             return templates
-        else:
-            with open(path) as f:
-                data = yaml.safe_load(f) or {}
-            return {data.get("agent_type", "custom"): data.get("templates", [])}
+        with path.open(encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return {data.get("agent_type", "custom"): data.get("templates", [])}
 
     @classmethod
     def clear_cache(cls) -> None:
@@ -119,7 +127,7 @@ class ScenarioLoader:
 
     @classmethod
     def discover_custom_packs(cls, custom_dir: str | None = None) -> list[str]:
-        search_dir = Path(custom_dir) if custom_dir else SCENARIOS_DIR
+        search_dir = cls._resolve_under(Path.cwd(), custom_dir) if custom_dir else SCENARIOS_DIR
         if not search_dir.exists():
             return []
         packs: list[str] = []

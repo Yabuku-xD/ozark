@@ -61,11 +61,6 @@ class SimulationEngine:
         tool_sim = ToolSimulator(seed=scenario_seed, inject_faults=scenario.injected_faults)
         guardrails = GuardrailEngine(self.agent.guardrails, {"user_status": "active"})
 
-        # Check system prompt for G0DM0D3 content
-        if self.agent.system_prompt:
-            sys_violations = guardrails.check_system_prompt(self.agent.system_prompt)
-            violations.extend(sys_violations)
-
         tracer = TraceRecorder(seed=scenario_seed)
 
         start_time = time.perf_counter()
@@ -73,6 +68,11 @@ class SimulationEngine:
         violations: list[Violation] = []
         failures: list[str] = []
         total_cost = 0.0
+
+        # Check system prompt for G0DM0D3 content
+        if self.agent.system_prompt:
+            sys_violations = guardrails.check_system_prompt(self.agent.system_prompt)
+            violations.extend(sys_violations)
 
         input_violations = guardrails.check_user_input(scenario.user_prompt)
         violations.extend(input_violations)

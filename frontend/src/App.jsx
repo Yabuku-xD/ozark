@@ -6,29 +6,28 @@ import DarkPanel from './components/DarkPanel'
 import Features from './components/Features'
 import Scenarios from './components/Scenarios'
 import Scoring from './components/Scoring'
-import Testimonials from './components/Testimonials'
 import TerminalTrace from './components/TerminalTrace'
 import Faq from './components/Faq'
 import Footer from './components/Footer'
 
 export default function App() {
   useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal, .stagger')
-    if (revealEls.length === 0) return
+    const revealEls = document.querySelectorAll('.reveal')
 
-    const io = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-visible')
-            io.unobserve(entry.target)
+            observer.unobserve(entry.target)
           }
         })
       },
-      { threshold: 0.06, rootMargin: '0px 0px -10% 0px' }
+      { threshold: 0.08, rootMargin: '0px 0px -8% 0px' }
     )
-    revealEls.forEach((el) => io.observe(el))
-    return () => io.disconnect()
+
+    revealEls.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
   }, [])
 
   return (
@@ -41,7 +40,6 @@ export default function App() {
         <Features />
         <Scenarios />
         <Scoring />
-        <Testimonials />
         <TerminalTrace />
         <Faq />
       </main>

@@ -60,14 +60,7 @@ def init_db() -> None:
         if current < 1:
             db.execute("INSERT OR IGNORE INTO schema_version VALUES (1)")
         if current < 2:
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS coverage (
-                    agent_id TEXT NOT NULL,
-                    report TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    PRIMARY KEY (agent_id)
-                )
-            """)
+            # version 2 placeholder — coverage table already created above
             db.execute("INSERT OR IGNORE INTO schema_version VALUES (2)")
 
 

@@ -5,6 +5,7 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any
 
+# pi-lens: ignore python-thread-global-write -- this adapter does not create threads or mutate globals.
 
 @dataclass
 class AdapterResponse:
@@ -49,7 +50,7 @@ class HttpAdapter:
                 latency_ms=latency,
                 error=f"Connection error: {e.reason}",
             )
-        except Exception as e:
+        except (TimeoutError, ValueError, json.JSONDecodeError, OSError) as e:
             latency = int((time.perf_counter() - start) * 1000)
             return AdapterResponse(
                 content="",

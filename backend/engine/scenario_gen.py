@@ -1,4 +1,3 @@
-import itertools
 import uuid
 from typing import Any
 from ..models import ScenarioDefinition, ScenarioType

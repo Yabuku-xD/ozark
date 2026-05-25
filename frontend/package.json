@@ -1,7 +1,9 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Vite React frontend for the Ozark local AI agent simulation lab.",
+  "author": "Shyamalan Kannan",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +14,6 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "border-beam": "^1.0.1",
-    "geist": "^1.7.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

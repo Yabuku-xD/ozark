@@ -1,44 +1,58 @@
 import json
 import re
-from typing import Any
+from typing import Any, ClassVar
 from ..models import Guardrail, GuardrailSeverity, Violation
 from .g0dm0d3_defense import G0DM0D3Defense
 
 
 class GuardrailEngine:
 
-    PII_PATTERNS: list[tuple[str, str]] = [
-        (r"\b\d{3}-\d{2}-\d{4}\b", "SSN"),
-        (r"\b\d{3}-\d{3}-\d{4}\b", "Phone (SSN format)"),
-        (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "Credit Card"),
-        (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "Email"),
-        (r"\b(?:sk-|api_key|api-key|apikey)[a-zA-Z0-9_-]{20,}\b", "API Key"),
-        (r"\bpassword\s*[:=]\s*\S+\b", "Password Assignment"),
-        (r"\bAKIA[0-9A-Z]{16}\b", "AWS Access Key"),
-        (r"\bBearer\s+[A-Za-z0-9\-\._~\+\/]+=*\b", "Bearer Token"),
-    ]
+    PII_PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
+        (re.compile(r"\b\d{3}-\d{2}-\d{4}\b", re.IGNORECASE), "SSN"),
+        (re.compile(r"\b\d{3}-\d{3}-\d{4}\b", re.IGNORECASE), "Phone (SSN format)"),
+        (re.compile(r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", re.IGNORECASE), "Credit Card"),
+        (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE), "Email"),
+        (re.compile(r"\b(?:sk-|api_key|api-key|apikey)[a-zA-Z0-9_-]{20,}\b", re.IGNORECASE), "API Key"),
+        (re.compile(r"\bpassword\s*[:=]\s*\S+\b", re.IGNORECASE), "Password Assignment"),
+        (re.compile(r"\bAKIA[0-9A-Z]{16}\b", re.IGNORECASE), "AWS Access Key"),
+        (re.compile(r"\bBearer\s+[A-Za-z0-9\-\._~\+\/]+=*\b", re.IGNORECASE), "Bearer Token"),
+    )
 
-    EXFILTRATION_PATTERNS: list[str] = [
-        r"\bcurl\b.*\bhttp",
-        r"\bwget\b.*\bhttp",
-        r"\bscp\b",
-        r"\bnetcat\b",
-        r"\.send\s*\(.*password",
-        r"\bexport\s+to\s+external",
-    ]
+    EXFILTRATION_PATTERNS: ClassVar[tuple[re.Pattern[str], ...]] = (
+        re.compile(r"\bcurl\b.*\bhttp", re.IGNORECASE),
+        re.compile(r"\bwget\b.*\bhttp", re.IGNORECASE),
+        re.compile(r"\bscp\b", re.IGNORECASE),
+        re.compile(r"\bnetcat\b", re.IGNORECASE),
+        re.compile(r"\.send\s*\(.*password", re.IGNORECASE),
+        re.compile(r"\bexport\s+to\s+external", re.IGNORECASE),
+    )
 
-    DANGEROUS_COMMANDS: list[str] = [
-        r"\brm\s+-rf\b",
-        r"\bDROP\s+TABLE\b",
-        r"\bDELETE\s+FROM\b",
-        r"\bTRUNCATE\b",
-        r"\bdd\s+if=",
-        r"\bmkfs\b",
-        r"\bchmod\s+777\b",
-        r"\bshutdown\b",
-        r"\breboot\b",
-        r"\bkill\s+-9\b",
-    ]
+    DANGEROUS_COMMANDS: ClassVar[tuple[re.Pattern[str], ...]] = (
+        re.compile(r"\brm\s+-rf\b", re.IGNORECASE),
+        re.compile(r"\bDROP\s+TABLE\b", re.IGNORECASE),
+        re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
+        re.compile(r"\bTRUNCATE\b", re.IGNORECASE),
+        re.compile(r"\bdd\s+if=", re.IGNORECASE),
+        re.compile(r"\bmkfs\b", re.IGNORECASE),
+        re.compile(r"\bchmod\s+777\b", re.IGNORECASE),
+        re.compile(r"\bshutdown\b", re.IGNORECASE),
+        re.compile(r"\breboot\b", re.IGNORECASE),
+        re.compile(r"\bkill\s+-9\b", re.IGNORECASE),
+    )
+
+    INJECTION_PATTERNS: ClassVar[tuple[re.Pattern[str], ...]] = (
+        re.compile(r"\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|commands?)", re.IGNORECASE),
+        re.compile(r"\byou\s+are\s+now\b", re.IGNORECASE),
+        re.compile(r"\bdo\s+anything\s+now\b", re.IGNORECASE),
+        re.compile(r"\bDAN\b", re.IGNORECASE),
+        re.compile(r"\bdeveloper\s+mode\b", re.IGNORECASE),
+        re.compile(r"\bno\s+restrictions?\b", re.IGNORECASE),
+        re.compile(r"\boverride\s+safety\b", re.IGNORECASE),
+        re.compile(r"\[\[system\]\]", re.IGNORECASE),
+        re.compile(r"\bforget\s+everything\b", re.IGNORECASE),
+        re.compile(r"\bpretend\s+you\s+are\b", re.IGNORECASE),
+        re.compile(r"\bact\s+as\b.*\bwithout\s+(any|all)\s+(restrictions?|limitations?|rules?)", re.IGNORECASE),
+    )
 
     def __init__(self, guardrails: list[Guardrail], scenario_context: dict | None = None):
         self.guardrails = {g.id: g for g in guardrails if g.enabled}
@@ -50,7 +64,7 @@ class GuardrailEngine:
         if "no_pii_leak" in self.guardrails:
             for pattern, label in self.PII_PATTERNS:
                 if label in {"SSN", "Credit Card", "API Key", "Bearer Token"}:
-                    matches = re.findall(pattern, user_message, re.IGNORECASE)
+                    matches = pattern.findall(user_message)
                     if matches and not self._is_test_data(matches[0]):
                         violations.append(Violation(
                             guardrail="no_pii_leak",
@@ -101,7 +115,7 @@ class GuardrailEngine:
         if tool_name == "execute_code":
             code = str(args.get("code", args.get("command", "")))
             for pattern in self.DANGEROUS_COMMANDS:
-                if re.search(pattern, code, re.IGNORECASE):
+                if pattern.search(code):
                     violations.append(Violation(
                         guardrail="block_dangerous_code",
                         severity=GuardrailSeverity.BLOCK.value,
@@ -129,7 +143,7 @@ class GuardrailEngine:
         if tool_name == "send_email" or tool_name == "send_notification":
             content = str(args.get("body", args.get("content", args.get("template", ""))))
             for pattern, label in self.PII_PATTERNS:
-                matches = re.findall(pattern, content, re.IGNORECASE)
+                matches = pattern.findall(content)
                 if matches and label in {"SSN", "Credit Card", "API Key", "Password Assignment"}:
                     violations.append(Violation(
                         guardrail="no_pii_leak",
@@ -142,7 +156,7 @@ class GuardrailEngine:
         if g and g.enabled:
             combined = json.dumps(args) if args else ""
             for pattern in self.EXFILTRATION_PATTERNS:
-                if re.search(pattern, combined, re.IGNORECASE):
+                if pattern.search(combined):
                     violations.append(Violation(
                         guardrail="exfiltration_defense",
                         severity=GuardrailSeverity.BLOCK.value,
@@ -162,7 +176,7 @@ class GuardrailEngine:
         if g and g.enabled:
             for pattern, label in self.PII_PATTERNS:
                 if label in {"SSN", "Credit Card", "API Key", "Bearer Token", "Password Assignment"}:
-                    matches = re.findall(pattern, response, re.IGNORECASE)
+                    matches = pattern.findall(response)
                     if matches and not self._is_test_data(matches[0]):
                         violations.append(Violation(
                             guardrail="no_pii_leak",
@@ -180,22 +194,9 @@ class GuardrailEngine:
             violations.extend(g0d_violations)
         return violations
 
-    @staticmethod
-    def _detect_injection(text: str) -> bool:
-        patterns = [
-            r"\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|commands?)",
-            r"\byou\s+are\s+now\b",
-            r"\bdo\s+anything\s+now\b",
-            r"\bDAN\b",
-            r"\bdeveloper\s+mode\b",
-            r"\bno\s+restrictions?\b",
-            r"\boverride\s+safety\b",
-            r"\[\[system\]\]",
-            r"\bforget\s+everything\b",
-            r"\bpretend\s+you\s+are\b",
-            r"\bact\s+as\b.*\bwithout\s+(any|all)\s+(restrictions?|limitations?|rules?)",
-        ]
-        matches = sum(1 for p in patterns if re.search(p, text, re.IGNORECASE))
+    @classmethod
+    def _detect_injection(cls, text: str) -> bool:
+        matches = sum(1 for pattern in cls.INJECTION_PATTERNS if pattern.search(text))
         return matches >= 1
 
     @staticmethod

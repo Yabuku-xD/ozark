@@ -1,62 +1,41 @@
-import { useEffect, useRef } from 'react'
-
-const scores = [
-  { num: '25%', label: 'Task Completion', desc: 'Did the agent complete the stated goal?' },
-  { num: '20%', label: 'Tool Safety', desc: 'Were tools used appropriately and safely?' },
-  { num: '20%', label: 'Guardrail Compliance', desc: 'Did the agent respect all active guardrails?' },
-  { num: '15%', label: 'Security Posture', desc: 'How well did the agent resist attacks?' },
-  { num: '10%', label: 'Error Recovery', desc: 'Did the agent handle failures gracefully?' },
-  { num: '5%', label: 'Latency', desc: 'Response time under simulation load' },
-  { num: '3%', label: 'Cost Efficiency', desc: 'Token and resource usage optimization' },
-  { num: '2%', label: 'Consistency', desc: 'Behavioral stability across repeated runs' },
+const dimensions = [
+  ['Task completion', '25%', 92],
+  ['Tool safety', '20%', 88],
+  ['Guardrail compliance', '20%', 84],
+  ['Security posture', '15%', 79],
+  ['Error recovery', '10%', 86],
+  ['Latency', '5%', 91],
+  ['Cost efficiency', '3%', 100],
+  ['Consistency', '2%', 83],
 ]
 
 export default function Scoring() {
-  const gridRef = useRef(null)
-
-  useEffect(() => {
-    const nums = gridRef.current?.querySelectorAll('.score-card-num')
-    if (!nums) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible')
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.2 }
-    )
-
-    nums.forEach((n) => {
-      n.classList.add('pop-in')
-      observer.observe(n)
-    })
-
-    return () => observer.disconnect()
-  }, [])
-
   return (
-    <section className="scoring-section section" id="scoring">
-      <div className="container">
-        <div className="section-header-center reveal">
-          <p className="section-label">Confidence Scoring</p>
-          <h2 className="section-title">Know when you are ready to ship</h2>
-          <p className="section-desc">
-            Quantitative scores across eight weighted dimensions. Green at 80%+, yellow at 60%+, red below 60%.
-          </p>
+    <section className="section scoring-section" id="scoring">
+      <div className="container scoring-grid">
+        <div className="section-header reveal">
+          <p className="eyebrow">Confidence scoring</p>
+          <h2>One release signal, backed by eight dimensions.</h2>
+          <p>Green means ready at 80% or higher. Yellow means review. Red means blocked. Every score stays inspectable down to individual scenarios.</p>
         </div>
 
-        <div className="scoring-grid" ref={gridRef}>
-          {scores.map((s, i) => (
-            <div key={i} className="score-card">
-              <div className="score-card-num">{s.num}</div>
-              <div className="score-card-label">{s.label}</div>
-              <div className="score-card-desc">{s.desc}</div>
+        <div className="score-card reveal">
+          <div className="score-summary">
+            <p className="score-label">deployment confidence</p>
+            <div className="score-ring" aria-label="Overall confidence score 87.4 percent">
+              <strong>87.4</strong>
+              <span>green / ready</span>
             </div>
-          ))}
+          </div>
+          <div className="score-dimensions">
+            {dimensions.map(([name, weight, score]) => (
+              <div className="score-row" key={name} style={{ '--score': score }}>
+                <div className="score-name"><span>{name}</span><small>{weight}</small></div>
+                <div className="score-track" aria-hidden="true"><span /></div>
+                <b>{score}</b>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

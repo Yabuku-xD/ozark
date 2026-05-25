@@ -203,9 +203,12 @@ class PolicyEngine:
         )
 
     def load_directory(self, directory: str) -> None:
-        path = Path(directory)
+        path = Path(directory).expanduser().resolve()
         for yaml_file in sorted(path.glob("*.yaml")):
-            with open(yaml_file) as f:
+            resolved_file = yaml_file.resolve()
+            if path != resolved_file and path not in resolved_file.parents:
+                continue
+            with resolved_file.open(encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             name = data.get("name", yaml_file.stem)
             rules: list[PolicyRule] = []

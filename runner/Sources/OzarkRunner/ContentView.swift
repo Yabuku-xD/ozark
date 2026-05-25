@@ -59,6 +59,15 @@ struct ContentView: View {
         "autonomous_ops",
     ]
 
+    private var productLogo: NSImage {
+        if let root = ProcessInfo.processInfo.environment["OZARK_PROJECT_ROOT"],
+           let image = NSImage(contentsOfFile: "\(root)/assets/logo.png") {
+            return image
+        }
+
+        return NSImage(size: NSSize(width: 22, height: 22))
+    }
+
     var body: some View {
         ZStack {
             Color.studioBlack.opacity(0.5)
@@ -115,10 +124,17 @@ struct ContentView: View {
 
     private var headerView: some View {
         HStack {
-            Text("OZARK")
-                .font(.system(size: 16, weight: .medium))
-                .tracking(2.5)
-                .foregroundColor(.warmCream)
+            HStack(spacing: 8) {
+                Image(nsImage: productLogo)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 22, height: 22)
+
+                Text("Ozark")
+                    .font(.system(size: 16, weight: .medium))
+                    .tracking(1.0)
+                    .foregroundColor(.warmCream)
+            }
 
             Spacer()
 

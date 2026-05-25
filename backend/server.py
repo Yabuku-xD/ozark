@@ -1,7 +1,7 @@
 import json
+import logging
 import os
 import uuid
-import traceback
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -16,11 +16,12 @@ from .engine.tracing import ReplayEngine
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend" / "dist"
 AGENTS_FILE = ROOT / "backend" / "agents.json"
+LOGGER = logging.getLogger(__name__)
 
 
 def _load_builtin_agents() -> list[dict]:
     if AGENTS_FILE.exists():
-        with open(AGENTS_FILE) as f:
+        with AGENTS_FILE.open(encoding="utf-8") as f:
             return json.load(f)
     return []
 
@@ -29,7 +30,7 @@ BUILTIN_AGENTS = _load_builtin_agents()
 
 
 def _import_agent_from_path(file_path: str) -> tuple[str, str, str, dict]:
-    path = Path(file_path)
+    path = Path(file_path).expanduser().resolve()
 
     if path.is_dir():
         candidates = ["config.json", "agent.json", "ozark.json", "agent_config.json"]
@@ -50,7 +51,7 @@ def _import_agent_from_path(file_path: str) -> tuple[str, str, str, dict]:
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    with open(path) as f:
+    with path.open(encoding="utf-8") as f:
         data = json.load(f)
 
     config = data.get("config", data)
@@ -71,9 +72,9 @@ def bootstrap() -> None:
         try:
             agent_id, name, description, config = _import_agent_from_path(agent_path)
             upsert_agent(agent_id, name, description, config, now)
-            print(f"Imported agent '{name}' from {agent_path}")
-        except Exception as exc:
-            print(f"Warning: Failed to import agent from {agent_path}: {exc}")
+            LOGGER.info("Imported agent %r from %s", name, agent_path)
+        except (FileNotFoundError, json.JSONDecodeError, OSError, ValueError) as exc:
+            LOGGER.warning("Failed to import agent from %s: %s", agent_path, exc)
 
 
 def read_json(handler) -> dict:
@@ -166,7 +167,7 @@ class Handler(SimpleHTTPRequestHandler):
                 send_json(self, {"coverage": cov})
             else:
                 super().do_GET()
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as exc:
             send_json(self, {"error": str(exc)}, 500)
 
     def do_POST(self):
@@ -325,8 +326,8 @@ class Handler(SimpleHTTPRequestHandler):
                     send_json(self, {"scenarios": [s.to_dict() for s in all_scenarios], "count": len(all_scenarios)}, 201)
             else:
                 send_json(self, {"error": "Not found"}, 404)
-        except Exception as exc:
-            traceback.print_exc()
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as exc:
+            LOGGER.exception("Request failed")
             send_json(self, {"error": str(exc)}, 500)
 
 
@@ -334,7 +335,7 @@ def main() -> None:
     bootstrap()
     port = int(os.environ.get("PORT", "8787"))
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print("Ozark v2.0 running at http://127.0.0.1:" + str(port))
+    LOGGER.info("Ozark v2.0 running at http://127.0.0.1:%s", port)
     server.serve_forever()
 
 

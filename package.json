@@ -1,0 +1,12 @@
+{
+  "name": "ozark",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-first AI agent simulation lab with runtime guardrails and deployment confidence scoring.",
+  "author": "Shyamalan Kannan",
+  "workspaces": [],
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint"
+  }
+}

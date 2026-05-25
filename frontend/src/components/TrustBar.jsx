@@ -1,20 +1,13 @@
-const items = [
-  'OpenAI', 'Anthropic', 'Llama', 'Mistral', 'Gemini',
-  'LangChain', 'Vercel AI SDK', 'Custom HTTP',
-]
+const items = ['offline by default', 'real execution engine', 'HTTP + stdio agents', 'MIT licensed']
 
 export default function TrustBar() {
   return (
-    <div className="trust-bar">
-      <p className="trust-bar-label">Compatible with leading AI frameworks</p>
-      <div className="trust-track">
-        {[...items, ...items].map((name, i) => (
-          <span key={i} className="trust-item">
-            <span className="dot" aria-hidden="true" />
-            {name}
-          </span>
+    <section className="trust-strip" aria-label="Ozark principles">
+      <div className="container trust-items">
+        {items.map((item) => (
+          <span key={item}>{item}</span>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

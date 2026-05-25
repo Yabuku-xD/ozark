@@ -53,7 +53,7 @@ class StdioAdapter:
         except subprocess.TimeoutExpired:
             latency = int((time.perf_counter() - start) * 1000)
             return StdioResponse(content="", latency_ms=latency, error=f"Command timed out after {self.timeout}s")
-        except Exception as e:
+        except (OSError, ValueError, json.JSONDecodeError) as e:
             latency = int((time.perf_counter() - start) * 1000)
             return StdioResponse(content="", latency_ms=latency, error=str(e))
 

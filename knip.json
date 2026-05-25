@@ -1,0 +1,26 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["frontend/src/main.jsx", "frontend/vite.config.js", "frontend/eslint.config.js"],
+  "project": ["frontend/src/**/*.{js,jsx}"],
+  "workspaces": {
+    "frontend": {
+      "entry": ["src/main.jsx", "vite.config.js", "eslint.config.js"],
+      "project": ["src/**/*.{js,jsx}"]
+    }
+  },
+  "ignoreBinaries": ["vitest"],
+  "ignoreDependencies": [
+    "@eslint/js",
+    "@vercel/analytics",
+    "@vercel/speed-insights",
+    "@vitejs/plugin-react",
+    "eslint",
+    "eslint-plugin-react-hooks",
+    "eslint-plugin-react-refresh",
+    "globals",
+    "react",
+    "react-dom",
+    "vite",
+    "vitest"
+  ]
+}

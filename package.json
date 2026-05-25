@@ -4,9 +4,30 @@
   "version": "0.1.0",
   "description": "Local-first AI agent simulation lab with runtime guardrails and deployment confidence scoring.",
   "author": "Shyamalan Kannan",
-  "workspaces": [],
+  "main": "frontend/src/main.jsx",
+  "module": "frontend/src/main.jsx",
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "build": "npm --prefix frontend run build",
-    "lint": "npm --prefix frontend run lint"
+    "lint": "npm --prefix frontend run lint",
+    "test": "npm --prefix frontend run test"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.5"
   }
 }

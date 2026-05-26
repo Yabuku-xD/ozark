@@ -4,6 +4,19 @@ cd "$(dirname "$0")"
 
 export OZARK_PROJECT_ROOT="$(pwd)"
 
+if [[ ! -d node_modules ]]; then
+    echo "Installing Node dependencies..."
+    npm ci
+fi
+
+if ! python3 - <<'PY' >/dev/null 2>&1
+import yaml
+PY
+then
+    echo "Installing Python dependencies..."
+    python3 -m pip install -r requirements.txt
+fi
+
 # ─── Color helpers ────────────────────────────────────
 CREAM='\033[38;2;255;237;215m'
 SIENNA='\033[38;2;220;80;0m'

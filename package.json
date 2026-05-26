@@ -12,7 +12,8 @@
   "scripts": {
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
-    "test": "npm --prefix frontend run test"
+    "test": "npm --prefix frontend run test",
+    "ozark": "python3 ozark.py"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

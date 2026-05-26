@@ -6,6 +6,7 @@ import DarkPanel from './components/DarkPanel'
 import Features from './components/Features'
 import Scenarios from './components/Scenarios'
 import Scoring from './components/Scoring'
+import WorkflowDashboard from './components/WorkflowDashboard'
 import TerminalTrace from './components/TerminalTrace'
 import Faq from './components/Faq'
 import Footer from './components/Footer'
@@ -40,6 +41,7 @@ export default function App() {
         <Features />
         <Scenarios />
         <Scoring />
+        <WorkflowDashboard />
         <TerminalTrace />
         <Faq />
       </main>

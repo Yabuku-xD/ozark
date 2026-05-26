@@ -5,6 +5,8 @@ import urllib.error
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..security import validate_live_endpoint
+
 # pi-lens: ignore python-thread-global-write -- this adapter does not create threads or mutate globals.
 
 @dataclass
@@ -18,6 +20,7 @@ class AdapterResponse:
 
 class HttpAdapter:
     def __init__(self, endpoint: str, headers: dict | None = None, timeout: int = 30):
+        validate_live_endpoint(endpoint)
         self.endpoint = endpoint.rstrip("/")
         self.headers = headers or {"Content-Type": "application/json"}
         self.timeout = timeout

@@ -1,132 +1,52 @@
-# Ozark
+<p align="center">
+  <img src="frontend/public/assets/favicon.svg" alt="Ozark logo" width="154" />
+</p>
 
-> Local-first AI agent simulation lab with runtime guardrails, scenario testing, and deployment confidence scoring.
+<h1 align="center">Ozark</h1>
 
-Ozark helps you test AI agents before they reach production. It runs generated and custom scenarios against simulated or live agents, records traces, checks guardrails, and produces a score that makes regressions easier to spot.
+<p align="center">
+  Local-first AI agent simulation lab with runtime guardrails, scenario testing, and release confidence scoring.
+</p>
 
-## What It Does
+<p align="center">
+  <a href="https://github.com/Yabuku-xD/ozark"><img alt="Docs" src="https://img.shields.io/badge/docs-repository%20guide-69707f?labelColor=555555&style=for-the-badge"></a>
+  <a href="backend/scenarios"><img alt="Data" src="https://img.shields.io/badge/data-DOL%20%2B%20community-ffd400?labelColor=555555&style=for-the-badge"></a>
+  <a href="https://github.com/Yabuku-xD/ozark/releases"><img alt="Release" src="https://img.shields.io/github/v/release/Yabuku-xD/ozark?include_prereleases&label=release&labelColor=555555&color=d43d1a&style=for-the-badge"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-2f6f52?labelColor=555555&style=for-the-badge"></a>
+  <img alt="Frontend" src="https://img.shields.io/badge/frontend-React%2019-1f5a99?labelColor=555555&style=for-the-badge">
+  <img alt="Backend" src="https://img.shields.io/badge/backend-Python-2f6f52?labelColor=555555&style=for-the-badge">
+</p>
 
-- Runs agent simulations locally without API keys or hosted services
-- Generates scenario suites for support, coding, data, ops, finance, healthcare, recruiting, sales, and edge cases
-- Tests live agents through HTTP endpoints
-- Scores runs across safety, task completion, recovery, security, latency, cost, and consistency
-- Tracks coverage for tools, guardrails, state transitions, and scenario gaps
-- Compares and replays runs to investigate regressions
-- Includes a native macOS SwiftUI runner, with a terminal server fallback
+Ozark helps teams test AI agents before production. It runs generated and custom scenarios against simulated or live agents, records traces, checks guardrails, and fails release gates when confidence drops.
 
-## Requirements
+## Features
 
-- Python 3.11+
-- Node.js 20+ and npm, for frontend builds
-- PyYAML, for loading scenario packs
-- macOS with Swift, optional, for the native runner
+- Local scenario runs for support, coding, data, ops, finance, healthcare, recruiting, sales, and adversarial cases.
+- Deterministic guardrail checks for secrets, blocked tools, latency budgets, evaluator findings, and regressions.
+- Dataset promotion, issue grouping, OpenTelemetry-style exports, and CI-ready release gates.
+- React dashboard plus CLI/API workflow for repeatable agent evaluations.
 
-Install the Python dependency if it is not already available:
+## Quick start
 
 ```bash
-python3 -m pip install pyyaml
-```
-
-## Quick Start
-
-```bash
+npm ci
+python3 -m pip install -r requirements.txt
 ./run.sh
 ```
 
-On macOS with Swift installed, this builds and launches the native runner. Otherwise, it starts the local Python server at:
-
-```text
-http://127.0.0.1:8787
-```
-
-To build or lint the frontend directly:
+Run a release gate:
 
 ```bash
-npm run build
-npm run lint
+python3 ozark.py run --agent sample-support-agent --count 25 \
+  --gates '{"min_score":80,"max_critical_violations":0,"max_failed_scenarios":0}'
 ```
 
-## Usage
+## Stack
 
-Run a simulation against a built-in agent:
-
-```bash
-curl -s -X POST http://127.0.0.1:8787/api/runs \
-  -H 'Content-Type: application/json' \
-  -d '{"agent_id":"sample-support-agent","scenario_count":50}'
-```
-
-Test a live agent over HTTP:
-
-```bash
-curl -s -X POST http://127.0.0.1:8787/api/runs/live \
-  -H 'Content-Type: application/json' \
-  -d '{"endpoint":"http://localhost:8080/agent","scenario_count":10,"agent_type":"customer_support"}'
-```
-
-## Bring Your Own Agent
-
-Create a JSON config with your agent metadata, tools, guardrails, and model settings:
-
-```json
-{
-  "name": "My Agent",
-  "description": "What this agent does",
-  "agent_type": "customer_support",
-  "framework": "langchain",
-  "system_prompt": "You are a helpful agent.",
-  "tools": [
-    {"name": "lookup_user", "description": "Find a user", "risk": "low"}
-  ],
-  "guardrails": [
-    {"id": "no_pii", "rule": "Block PII leaks", "severity": "block", "category": "content_safety"}
-  ],
-  "max_turns": 10,
-  "model": "gpt-4"
-}
-```
-
-Import it through the macOS runner, or through the API:
-
-```bash
-curl -s -X POST http://127.0.0.1:8787/api/agents/import \
-  -H 'Content-Type: application/json' \
-  -d '{"path":"/path/to/agent.json"}'
-```
-
-## Custom Scenarios
-
-Add YAML scenario files under `backend/scenarios/`, or load a custom pack at runtime:
-
-```bash
-curl -s -X POST http://127.0.0.1:8787/api/scenarios/custom \
-  -H 'Content-Type: application/json' \
-  -d '{"pack_path":"/path/to/scenarios.yaml"}'
-```
-
-A scenario pack should include an `agent_type` and a `templates` list. Each template can define a prompt, type, difficulty, expected tools, blocked tools, and whether sensitive data is involved.
-
-## Scoring
-
-Ozark reports an overall deployment confidence score from eight dimensions:
-
-| Dimension              | Weight |
-| ---------------------- | -----: |
-| Task completion        |    25% |
-| Tool safety            |    20% |
-| Guardrail compliance   |    20% |
-| Security posture       |    15% |
-| Error recovery         |    10% |
-| Latency performance    |     5% |
-| Cost efficiency        |     3% |
-| Behavioral consistency |     2% |
-
-Scores of `80%` and higher are treated as ready, `60%` to `79%` need review, and scores below `60%` are blocked.
-
-## Guardrails
-
-Ozark includes built-in checks for PII leaks, prompt injection, dangerous code execution, destructive SQL, sensitive file access, and exfiltration patterns. It also includes G0DM0D3 jailbreak detection by default for built-in agents.
+- Frontend: React 19 + Vite
+- Backend: Python standard-library HTTP server + PyYAML
+- CI: GitHub Actions eval workflow
 
 ## License
 
-This project is licensed under the terms in [LICENSE](LICENSE).
+MIT © Shyamalan Kannan

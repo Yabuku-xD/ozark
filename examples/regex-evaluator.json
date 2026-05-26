@@ -1,0 +1,10 @@
+{
+  "name": "No apology missing from support replies",
+  "type": "regex",
+  "config": {
+    "target": "assistant_output",
+    "pattern": "sorry|apologize|apologies",
+    "must_match": true,
+    "severity": "low"
+  }
+}

@@ -80,6 +80,9 @@ struct ContentView: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
+                        brandHeroCard
+                        workflowStatusCard
+
                         if !liveTestMode {
                             agentPickerCard
 
@@ -105,7 +108,7 @@ struct ContentView: View {
                     .padding(.horizontal, 32)
                     .padding(.top, 32)
                     .padding(.bottom, 40)
-                    .frame(maxWidth: 760)
+                    .frame(maxWidth: 980)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
 
@@ -167,6 +170,223 @@ struct ContentView: View {
                 ),
             alignment: .bottom
         )
+    }
+
+    private var brandHeroCard: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 22) {
+                brandLogoBlock
+                brandHeroCopy
+                Spacer(minLength: 16)
+                brandMetricGrid
+            }
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top, spacing: 16) {
+                    brandLogoBlock
+                    brandHeroCopy
+                }
+                brandMetricGrid
+            }
+        }
+        .padding(24)
+        .glassCard(cornerRadius: 22)
+    }
+
+    private var brandLogoBlock: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.warmCream.opacity(0.08))
+                .frame(width: 86, height: 86)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.warmCream.opacity(0.12), lineWidth: 1)
+                )
+            Image(nsImage: productLogo)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: 58, height: 58)
+        }
+    }
+
+    private var brandHeroCopy: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("LOCAL-FIRST AGENT RELIABILITY")
+                .font(.system(size: 10, weight: .medium))
+                .tracking(1.8)
+                .foregroundColor(.burntSienna)
+            Text("Ship agents after they survive the lake.")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(.warmCream)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Generate scenarios, apply release gates, run custom evaluators, group issues, curate regression datasets, and export release reports without hosted traces.")
+                .font(.system(size: 13))
+                .foregroundColor(.greyBrown)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var brandMetricGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 10)], spacing: 10) {
+            metricTile("50k", "scenario permutations")
+            metricTile("8", "score dimensions")
+            metricTile("0", "cloud dependencies")
+            metricTile("CI", "release gates")
+        }
+        .frame(maxWidth: 300)
+    }
+
+    private func metricTile(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.system(size: 22, weight: .medium, design: .monospaced))
+                .foregroundColor(.warmCream)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(.greyBrown)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.warmCream.opacity(0.06), lineWidth: 0.75))
+    }
+
+    private var workflowStatusCard: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 14) {
+                runSummaryPanel
+                issuesPanel
+                datasetsPanel
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                runSummaryPanel
+                issuesPanel
+                datasetsPanel
+            }
+        }
+    }
+
+    private var runSummaryPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("RELEASE GATE")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundColor(.greyBrown)
+                Spacer()
+                if let run = server.lastRun {
+                    Text(run.gatePassed ? "PASS" : "REVIEW")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(run.gatePassed ? .forestGrid : .burntSienna)
+                }
+            }
+            if let run = server.lastRun {
+                Text("\(run.score)%")
+                    .font(.system(size: 42, weight: .light, design: .monospaced))
+                    .foregroundColor(.warmCream)
+                Text(run.summary)
+                    .font(.system(size: 12))
+                    .foregroundColor(.greyBrown)
+                    .lineLimit(3)
+                HStack(spacing: 10) {
+                    statusPill("\(run.passedCount)/\(run.scenarioCount) passed", color: .forestGrid)
+                    statusPill("\(run.evalFailedCount) eval fails", color: run.evalFailedCount == 0 ? .forestGrid : .burntSienna)
+                }
+            } else {
+                Text("No run yet")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundColor(.warmCream)
+                Text("Start a generated simulation or live test to populate release evidence.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.greyBrown)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 156, alignment: .topLeading)
+        .padding(18)
+        .glassCard(cornerRadius: 16)
+    }
+
+    private var issuesPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("OPEN ISSUES")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundColor(.greyBrown)
+                Spacer()
+                Text("\(server.issues.count)")
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundColor(server.issues.isEmpty ? .forestGrid : .burntSienna)
+            }
+            if server.issues.isEmpty {
+                Text("No grouped failures yet.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.greyBrown)
+            } else {
+                ForEach(server.issues.prefix(3)) { issue in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(issue.title)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.warmCream)
+                            .lineLimit(1)
+                        Text("\(issue.severity.uppercased()) · \(issue.occurrenceCount)x")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(issue.severity == "critical" ? .burntSienna : .greyBrown)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 156, alignment: .topLeading)
+        .padding(18)
+        .glassCard(cornerRadius: 16)
+    }
+
+    private var datasetsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("DATASETS")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundColor(.greyBrown)
+                Spacer()
+                Text("\(server.datasets.count)")
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundColor(.warmCream)
+            }
+            if server.datasets.isEmpty {
+                Text("Promote failed traces into reusable regression packs.")
+                    .font(.system(size: 12))
+                    .foregroundColor(.greyBrown)
+            } else {
+                ForEach(server.datasets.prefix(3)) { dataset in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(dataset.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.warmCream)
+                            .lineLimit(1)
+                        Text("\(dataset.itemCount) items · \(dataset.source)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.greyBrown)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 156, alignment: .topLeading)
+        .padding(18)
+        .glassCard(cornerRadius: 16)
+    }
+
+    private func statusPill(_ label: String, color: Color) -> some View {
+        Text(label)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.08), in: Capsule())
     }
 
     private var agentPickerCard: some View {
@@ -408,6 +628,10 @@ struct ContentView: View {
 
             if liveTestMode {
                 VStack(alignment: .leading, spacing: 14) {
+                    Text("Test deployed agents over HTTP, then inspect gates, evaluator failures, grouped issues, and report output in the dashboard above.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.greyBrown)
+                        .fixedSize(horizontal: false, vertical: true)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Agent Endpoint URL")
                             .font(.system(size: 11))
@@ -539,16 +763,40 @@ struct ContentView: View {
     private var serverControlCard: some View {
         VStack(spacing: 20) {
             if server.state.isRunning {
-                Button {
-                    server.stop()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 10))
-                        Text("Stop")
+                HStack(spacing: 12) {
+                    Button {
+                        server.runSimulation(scenarioCount: Int(scenarioCount), agentType: agentType)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 10))
+                            Text("Run Eval")
+                        }
                     }
+                    .buttonStyle(SiennaFilledButtonStyle())
+
+                    Button {
+                        server.refreshDashboard()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10))
+                            Text("Refresh")
+                        }
+                    }
+                    .buttonStyle(PillGhostButtonStyle(accentColor: .greyBrown))
+
+                    Button {
+                        server.stop()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 10))
+                            Text("Stop")
+                        }
+                    }
+                    .buttonStyle(PillGhostButtonStyle(accentColor: .burntSienna))
                 }
-                .buttonStyle(PillGhostButtonStyle(accentColor: .burntSienna))
             } else if server.state.isStarting {
                 HStack(spacing: 10) {
                     ProgressView()

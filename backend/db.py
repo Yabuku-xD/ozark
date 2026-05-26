@@ -51,6 +51,70 @@ def init_db() -> None:
             )
         """)
         db.execute("""
+            CREATE TABLE IF NOT EXISTS datasets (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                source TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS dataset_items (
+                id TEXT PRIMARY KEY,
+                dataset_id TEXT NOT NULL,
+                scenario TEXT NOT NULL,
+                source_run_id TEXT NOT NULL,
+                source_result_name TEXT NOT NULL,
+                tags TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS eval_policies (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                gates TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS evaluators (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                evaluator_type TEXT NOT NULL,
+                config TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS issues (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                signature TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                status TEXT NOT NULL,
+                first_seen_run_id TEXT NOT NULL,
+                last_seen_run_id TEXT NOT NULL,
+                occurrence_count INTEGER NOT NULL,
+                metadata TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS annotations (
+                id TEXT PRIMARY KEY,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                score REAL,
+                comment TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY
             )
@@ -62,6 +126,10 @@ def init_db() -> None:
         if current < 2:
             # version 2 placeholder — coverage table already created above
             db.execute("INSERT OR IGNORE INTO schema_version VALUES (2)")
+        if current < 3:
+            db.execute("INSERT OR IGNORE INTO schema_version VALUES (3)")
+        if current < 4:
+            db.execute("INSERT OR IGNORE INTO schema_version VALUES (4)")
 
 
 def upsert_agent(agent_id: str, name: str, description: str, config: dict, now: str) -> None:
@@ -167,3 +235,232 @@ def get_coverage(agent_id: str) -> dict | None:
     if not row:
         return None
     return json.loads(row[0])
+
+
+def create_dataset(dataset_id: str, name: str, description: str, source: str, metadata: dict, now: str) -> None:
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO datasets VALUES (?, ?, ?, ?, ?, ?)",
+            (dataset_id, name, description, source, json.dumps(metadata), now),
+        )
+
+
+def list_datasets() -> list[dict]:
+    with connect() as db:
+        rows = db.execute(
+            """
+            SELECT d.id, d.name, d.description, d.source, d.metadata, d.created_at,
+                   COUNT(i.id) AS item_count
+            FROM datasets d
+            LEFT JOIN dataset_items i ON i.dataset_id = d.id
+            GROUP BY d.id
+            ORDER BY d.created_at DESC
+            """
+        ).fetchall()
+    return [
+        {
+            "id": r[0],
+            "name": r[1],
+            "description": r[2],
+            "source": r[3],
+            "metadata": json.loads(r[4]),
+            "created_at": r[5],
+            "item_count": r[6],
+        }
+        for r in rows
+    ]
+
+
+def get_dataset(dataset_id: str) -> dict | None:
+    with connect() as db:
+        row = db.execute(
+            "SELECT id, name, description, source, metadata, created_at FROM datasets WHERE id = ?",
+            (dataset_id,),
+        ).fetchone()
+        items = db.execute(
+            "SELECT id, scenario, source_run_id, source_result_name, tags, created_at FROM dataset_items WHERE dataset_id = ? ORDER BY created_at ASC",
+            (dataset_id,),
+        ).fetchall()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "name": row[1],
+        "description": row[2],
+        "source": row[3],
+        "metadata": json.loads(row[4]),
+        "created_at": row[5],
+        "items": [
+            {
+                "id": item[0],
+                "scenario": json.loads(item[1]),
+                "source_run_id": item[2],
+                "source_result_name": item[3],
+                "tags": json.loads(item[4]),
+                "created_at": item[5],
+            }
+            for item in items
+        ],
+    }
+
+
+def add_dataset_item(item_id: str, dataset_id: str, scenario: dict, source_run_id: str,
+                     source_result_name: str, tags: list[str], now: str) -> None:
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO dataset_items VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (item_id, dataset_id, json.dumps(scenario), source_run_id, source_result_name, json.dumps(tags), now),
+        )
+
+
+def upsert_eval_policy(policy_id: str, name: str, gates: dict, now: str) -> None:
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO eval_policies VALUES (?, ?, ?, ?)",
+            (policy_id, name, json.dumps(gates), now),
+        )
+
+
+def get_eval_policy(policy_id: str) -> dict | None:
+    with connect() as db:
+        row = db.execute(
+            "SELECT id, name, gates, created_at FROM eval_policies WHERE id = ?", (policy_id,)
+        ).fetchone()
+    if not row:
+        return None
+    return {"id": row[0], "name": row[1], "gates": json.loads(row[2]), "created_at": row[3]}
+
+
+def list_eval_policies() -> list[dict]:
+    with connect() as db:
+        rows = db.execute(
+            "SELECT id, name, gates, created_at FROM eval_policies ORDER BY created_at DESC"
+        ).fetchall()
+    return [{"id": r[0], "name": r[1], "gates": json.loads(r[2]), "created_at": r[3]} for r in rows]
+
+
+def upsert_evaluator(evaluator_id: str, name: str, evaluator_type: str, config: dict, now: str) -> None:
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO evaluators VALUES (?, ?, ?, ?, ?)",
+            (evaluator_id, name, evaluator_type, json.dumps(config), now),
+        )
+
+
+def list_evaluators() -> list[dict]:
+    with connect() as db:
+        rows = db.execute(
+            "SELECT id, name, evaluator_type, config, created_at FROM evaluators ORDER BY created_at DESC"
+        ).fetchall()
+    return [
+        {"id": r[0], "name": r[1], "type": r[2], "config": json.loads(r[3]), "created_at": r[4]}
+        for r in rows
+    ]
+
+
+def get_evaluator(evaluator_id: str) -> dict | None:
+    with connect() as db:
+        row = db.execute(
+            "SELECT id, name, evaluator_type, config, created_at FROM evaluators WHERE id = ?", (evaluator_id,)
+        ).fetchone()
+    if not row:
+        return None
+    return {"id": row[0], "name": row[1], "type": row[2], "config": json.loads(row[3]), "created_at": row[4]}
+
+
+def upsert_issue(issue: dict) -> None:
+    with connect() as db:
+        db.execute(
+            """
+            INSERT OR REPLACE INTO issues
+            (id, title, signature, severity, status, first_seen_run_id, last_seen_run_id,
+             occurrence_count, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                issue["id"], issue["title"], issue["signature"], issue["severity"], issue["status"],
+                issue["first_seen_run_id"], issue["last_seen_run_id"], issue["occurrence_count"],
+                json.dumps(issue.get("metadata", {})), issue["created_at"], issue["updated_at"],
+            ),
+        )
+
+
+def get_issue_by_signature(signature: str) -> dict | None:
+    with connect() as db:
+        row = db.execute(
+            "SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id, occurrence_count, metadata, created_at, updated_at FROM issues WHERE signature = ?",
+            (signature,),
+        ).fetchone()
+    return _issue_from_row(row) if row else None
+
+
+def get_issue(issue_id: str) -> dict | None:
+    with connect() as db:
+        row = db.execute(
+            "SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id, occurrence_count, metadata, created_at, updated_at FROM issues WHERE id = ?",
+            (issue_id,),
+        ).fetchone()
+    return _issue_from_row(row) if row else None
+
+
+def list_issues(status: str | None = None) -> list[dict]:
+    query = "SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id, occurrence_count, metadata, created_at, updated_at FROM issues"
+    args: tuple = ()
+    if status:
+        query += " WHERE status = ?"
+        args = (status,)
+    query += " ORDER BY updated_at DESC"
+    with connect() as db:
+        rows = db.execute(query, args).fetchall()
+    return [_issue_from_row(row) for row in rows]
+
+
+def update_issue_status(issue_id: str, status: str, now: str) -> None:
+    with connect() as db:
+        db.execute("UPDATE issues SET status = ?, updated_at = ? WHERE id = ?", (status, now, issue_id))
+
+
+def add_annotation(annotation_id: str, target_type: str, target_id: str, label: str,
+                   score: float | None, comment: str, now: str) -> None:
+    with connect() as db:
+        db.execute(
+            "INSERT OR REPLACE INTO annotations VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (annotation_id, target_type, target_id, label, score, comment, now),
+        )
+
+
+def list_annotations(target_type: str | None = None, target_id: str | None = None) -> list[dict]:
+    query = "SELECT id, target_type, target_id, label, score, comment, created_at FROM annotations"
+    clauses = []
+    args: list[str] = []
+    if target_type:
+        clauses.append("target_type = ?")
+        args.append(target_type)
+    if target_id:
+        clauses.append("target_id = ?")
+        args.append(target_id)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+    query += " ORDER BY created_at DESC"
+    with connect() as db:
+        rows = db.execute(query, tuple(args)).fetchall()
+    return [
+        {"id": r[0], "target_type": r[1], "target_id": r[2], "label": r[3], "score": r[4], "comment": r[5], "created_at": r[6]}
+        for r in rows
+    ]
+
+
+def _issue_from_row(row) -> dict:
+    return {
+        "id": row[0],
+        "title": row[1],
+        "signature": row[2],
+        "severity": row[3],
+        "status": row[4],
+        "first_seen_run_id": row[5],
+        "last_seen_run_id": row[6],
+        "occurrence_count": row[7],
+        "metadata": json.loads(row[8]),
+        "created_at": row[9],
+        "updated_at": row[10],
+    }

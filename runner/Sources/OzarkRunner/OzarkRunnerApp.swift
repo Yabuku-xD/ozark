@@ -7,10 +7,10 @@ struct OzarkRunnerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 680, minHeight: 780)
+                .frame(minWidth: 720, minHeight: 720)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 720, height: 860)
+        .defaultSize(width: 980, height: 920)
     }
 }
 

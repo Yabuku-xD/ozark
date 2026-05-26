@@ -2,6 +2,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+MAX_REGEX_LENGTH = 500
+
+
+def compile_safe_regex(pattern: str, flags: int = 0) -> re.Pattern[str]:
+    if len(pattern) > MAX_REGEX_LENGTH:
+        raise ValueError("regex pattern is too long")
+    return re.compile(pattern, flags)
+
 
 @dataclass
 class EvalFinding:
@@ -112,7 +120,20 @@ def _regex_evaluator(evaluator: dict[str, Any], config: dict[str, Any], result: 
             evidence="",
             metadata={"scenario_name": result.get("scenario_name", "")},
         )
-    matched = bool(re.search(pattern, text))
+    try:
+        regex = compile_safe_regex(pattern)
+    except re.error as exc:
+        return EvalFinding(
+            evaluator_id=evaluator["id"],
+            name=evaluator["name"],
+            passed=False,
+            score=0.0,
+            severity=config.get("severity", "medium"),
+            message=f"invalid regex pattern: {exc}",
+            evidence="",
+            metadata={"scenario_name": result.get("scenario_name", "")},
+        )
+    matched = bool(regex.search(text))
     passed = matched if must_match else not matched
     return EvalFinding(
         evaluator_id=evaluator["id"],

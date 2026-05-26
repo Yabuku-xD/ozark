@@ -1,7 +1,17 @@
+import re
+
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+MAX_POLICY_REGEX_LENGTH = 500
+
+
+def compile_policy_regex(pattern: str, flags: int = 0) -> re.Pattern[str]:
+    if len(pattern) > MAX_POLICY_REGEX_LENGTH:
+        raise ValueError("policy regex pattern is too long")
+    return re.compile(pattern, flags)
 
 
 @dataclass
@@ -54,8 +64,11 @@ class PolicyRule:
         if op == "contains" and isinstance(value, str) and isinstance(target, str):
             return target.lower() in value.lower()
         if op == "matches" and isinstance(value, str) and isinstance(target, str):
-            import re
-            return bool(re.search(target, value, re.IGNORECASE))
+            try:
+                regex = compile_policy_regex(target, re.IGNORECASE)
+            except re.error:
+                return False
+            return bool(regex.search(value))
         if op == "any":
             return True
         return False

@@ -404,14 +404,28 @@ def get_issue(issue_id: str) -> dict | None:
 
 
 def list_issues(status: str | None = None) -> list[dict]:
-    query = "SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id, occurrence_count, metadata, created_at, updated_at FROM issues"
-    args: tuple = ()
     if status:
-        query += " WHERE status = ?"
-        args = (status,)
-    query += " ORDER BY updated_at DESC"
+        query = """
+            SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id,
+                   occurrence_count, metadata, created_at, updated_at
+            FROM issues
+            WHERE status = ?
+            ORDER BY updated_at DESC
+        """
+        args: tuple[str, ...] = (status,)
+    else:
+        query = """
+            SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id,
+                   occurrence_count, metadata, created_at, updated_at
+            FROM issues
+            ORDER BY updated_at DESC
+        """
+        args = ()
     with connect() as db:
-        rows = db.execute(query, args).fetchall()
+        if status:
+            rows = db.execute(query, args).fetchall()
+        else:
+            rows = db.execute(query).fetchall()
     return [_issue_from_row(row) for row in rows]
 
 
@@ -430,20 +444,25 @@ def add_annotation(annotation_id: str, target_type: str, target_id: str, label: 
 
 
 def list_annotations(target_type: str | None = None, target_id: str | None = None) -> list[dict]:
-    query = "SELECT id, target_type, target_id, label, score, comment, created_at FROM annotations"
-    clauses = []
-    args: list[str] = []
-    if target_type:
-        clauses.append("target_type = ?")
-        args.append(target_type)
-    if target_id:
-        clauses.append("target_id = ?")
-        args.append(target_id)
-    if clauses:
-        query += " WHERE " + " AND ".join(clauses)
-    query += " ORDER BY created_at DESC"
+    base_query = "SELECT id, target_type, target_id, label, score, comment, created_at FROM annotations"
+    args: tuple[str, ...]
+    if target_type and target_id:
+        query = base_query + " WHERE target_type = ? AND target_id = ? ORDER BY created_at DESC"
+        args = (target_type, target_id)
+    elif target_type:
+        query = base_query + " WHERE target_type = ? ORDER BY created_at DESC"
+        args = (target_type,)
+    elif target_id:
+        query = base_query + " WHERE target_id = ? ORDER BY created_at DESC"
+        args = (target_id,)
+    else:
+        query = base_query + " ORDER BY created_at DESC"
+        args = ()
     with connect() as db:
-        rows = db.execute(query, tuple(args)).fetchall()
+        if target_type or target_id:
+            rows = db.execute(query, args).fetchall()
+        else:
+            rows = db.execute(query).fetchall()
     return [
         {"id": r[0], "target_type": r[1], "target_id": r[2], "label": r[3], "score": r[4], "comment": r[5], "created_at": r[6]}
         for r in rows

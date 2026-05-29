@@ -709,6 +709,118 @@ h3 {
 	font-variant-numeric: tabular-nums;
 }
 
+.risk-section {
+	background: #f7f4ea;
+}
+.risk-grid {
+	display: grid;
+	grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1fr);
+	gap: clamp(28px, 5vw, 56px);
+	align-items: start;
+}
+.risk-card,
+.gate-card {
+	border: 1px solid var(--line-strong);
+	background: rgba(255, 255, 255, 0.78);
+}
+.risk-card {
+	grid-column: 2;
+	padding: clamp(20px, 3vw, 30px);
+}
+.risk-score {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 10px 24px;
+	align-items: start;
+	padding-bottom: 22px;
+	border-bottom: 1px solid var(--line);
+}
+.risk-score span,
+.gate-card-top {
+	color: var(--gray);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	text-transform: uppercase;
+}
+.risk-score strong {
+	font-size: clamp(48px, 8vw, 84px);
+	font-weight: 650;
+	line-height: 0.85;
+	font-variant-numeric: tabular-nums;
+}
+.risk-score p {
+	grid-column: 1 / -1;
+	max-width: 560px;
+	margin: 0;
+	color: var(--granite);
+	line-height: 1.6;
+}
+.risk-table {
+	margin-top: 22px;
+}
+.risk-table-head,
+.risk-table-row {
+	display: grid;
+	grid-template-columns: 0.8fr 1fr 0.8fr 1.2fr;
+	gap: 14px;
+	align-items: center;
+}
+.risk-table-head {
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--line);
+	color: var(--gray);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	text-transform: uppercase;
+}
+.risk-table-row {
+	padding: 14px 0;
+	border-bottom: 1px solid var(--line);
+	color: var(--granite);
+}
+.risk-table-row strong {
+	color: var(--ink);
+}
+.gate-card {
+	grid-column: 1 / -1;
+	padding: 16px;
+}
+.gate-card-top {
+	display: flex;
+	justify-content: space-between;
+	gap: 18px;
+	padding-bottom: 14px;
+	border-bottom: 1px solid var(--line);
+}
+.gate-card-top b {
+	color: var(--ink);
+	font-weight: 520;
+}
+.gate-card article {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 18px;
+	align-items: center;
+	padding: 15px 0;
+	border-bottom: 1px solid var(--line);
+}
+.gate-card article:last-child,
+.risk-table-row:last-child {
+	border-bottom: 0;
+}
+.gate-card h3 {
+	margin: 0 0 4px;
+	font-size: 15px;
+}
+.gate-card p {
+	margin: 0;
+	color: var(--gray);
+}
+.gate-card strong {
+	font-family: var(--font-mono);
+	font-size: 18px;
+	font-variant-numeric: tabular-nums;
+}
 .workflow-section {
 	background: linear-gradient(180deg, #ffffff 0%, #f7f4ea 100%);
 }
@@ -1086,8 +1198,13 @@ h3 {
 		grid-template-columns: repeat(2, 1fr);
 	}
 	.hero-grid,
-	.scoring-grid {
+	.scoring-grid,
+	.risk-grid {
 		grid-template-columns: 1fr;
+	}
+	.risk-card,
+	.gate-card {
+		grid-column: auto;
 	}
 	.hero-lab {
 		max-width: 620px;
@@ -1170,7 +1287,10 @@ h3 {
 	.scenario-table article,
 	.terminal-line,
 	.workflow-lanes article,
-	.issue-row {
+	.issue-row,
+	.risk-table-head,
+	.risk-table-row,
+	.gate-card article {
 		grid-template-columns: 1fr;
 	}
 	.severity {

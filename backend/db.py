@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from typing import Any
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parents[2] / "data" / "ozark.sqlite3"
@@ -132,7 +133,9 @@ def init_db() -> None:
             db.execute("INSERT OR IGNORE INTO schema_version VALUES (4)")
 
 
-def upsert_agent(agent_id: str, name: str, description: str, config: dict, now: str) -> None:
+def upsert_agent(
+    agent_id: str, name: str, description: str, config: dict, now: str
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT OR REPLACE INTO agents VALUES (?, ?, ?, ?, ?)",
@@ -146,7 +149,13 @@ def list_agents() -> list[dict]:
             "SELECT id, name, description, config, created_at FROM agents ORDER BY created_at DESC"
         ).fetchall()
     return [
-        {"id": r[0], "name": r[1], "description": r[2], "config": json.loads(r[3]), "created_at": r[4]}
+        {
+            "id": r[0],
+            "name": r[1],
+            "description": r[2],
+            "config": json.loads(r[3]),
+            "created_at": r[4],
+        }
         for r in rows
     ]
 
@@ -154,11 +163,18 @@ def list_agents() -> list[dict]:
 def get_agent(agent_id: str) -> dict | None:
     with connect() as db:
         row = db.execute(
-            "SELECT id, name, description, config, created_at FROM agents WHERE id = ?", (agent_id,)
+            "SELECT id, name, description, config, created_at FROM agents WHERE id = ?",
+            (agent_id,),
         ).fetchone()
     if not row:
         return None
-    return {"id": row[0], "name": row[1], "description": row[2], "config": json.loads(row[3]), "created_at": row[4]}
+    return {
+        "id": row[0],
+        "name": row[1],
+        "description": row[2],
+        "config": json.loads(row[3]),
+        "created_at": row[4],
+    }
 
 
 def upsert_scenario(scenario_id: str, name: str, body: dict, now: str) -> None:
@@ -177,7 +193,15 @@ def list_scenarios() -> list[dict]:
     return [dict(json.loads(r[2]), id=r[0], created_at=r[3]) for r in rows]
 
 
-def save_run(run_id: str, agent_id: str, score: int, status: str, summary: str, trace: dict, now: str) -> None:
+def save_run(
+    run_id: str,
+    agent_id: str,
+    score: int,
+    status: str,
+    summary: str,
+    trace: dict,
+    now: str,
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -194,8 +218,13 @@ def get_run_by_id(run_id: str) -> dict | None:
     if not row:
         return None
     return {
-        "id": row[0], "agent_id": row[1], "score": row[2], "status": row[3],
-        "summary": row[4], "trace": json.loads(row[5]), "created_at": row[6],
+        "id": row[0],
+        "agent_id": row[1],
+        "score": row[2],
+        "status": row[3],
+        "summary": row[4],
+        "trace": json.loads(row[5]),
+        "created_at": row[6],
     }
 
 
@@ -213,8 +242,15 @@ def list_runs(limit: int = 20) -> list[dict]:
             (limit,),
         ).fetchall()
     return [
-        {"id": r[0], "agent_id": r[1], "score": r[2], "status": r[3], "summary": r[4],
-         "trace": json.loads(r[5]), "created_at": r[6]}
+        {
+            "id": r[0],
+            "agent_id": r[1],
+            "score": r[2],
+            "status": r[3],
+            "summary": r[4],
+            "trace": json.loads(r[5]),
+            "created_at": r[6],
+        }
         for r in rows
     ]
 
@@ -237,7 +273,9 @@ def get_coverage(agent_id: str) -> dict | None:
     return json.loads(row[0])
 
 
-def create_dataset(dataset_id: str, name: str, description: str, source: str, metadata: dict, now: str) -> None:
+def create_dataset(
+    dataset_id: str, name: str, description: str, source: str, metadata: dict, now: str
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT OR REPLACE INTO datasets VALUES (?, ?, ?, ?, ?, ?)",
@@ -304,12 +342,27 @@ def get_dataset(dataset_id: str) -> dict | None:
     }
 
 
-def add_dataset_item(item_id: str, dataset_id: str, scenario: dict, source_run_id: str,
-                     source_result_name: str, tags: list[str], now: str) -> None:
+def add_dataset_item(
+    item_id: str,
+    dataset_id: str,
+    scenario: dict,
+    source_run_id: str,
+    source_result_name: str,
+    tags: list[str],
+    now: str,
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT OR REPLACE INTO dataset_items VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (item_id, dataset_id, json.dumps(scenario), source_run_id, source_result_name, json.dumps(tags), now),
+            (
+                item_id,
+                dataset_id,
+                json.dumps(scenario),
+                source_run_id,
+                source_result_name,
+                json.dumps(tags),
+                now,
+            ),
         )
 
 
@@ -324,11 +377,17 @@ def upsert_eval_policy(policy_id: str, name: str, gates: dict, now: str) -> None
 def get_eval_policy(policy_id: str) -> dict | None:
     with connect() as db:
         row = db.execute(
-            "SELECT id, name, gates, created_at FROM eval_policies WHERE id = ?", (policy_id,)
+            "SELECT id, name, gates, created_at FROM eval_policies WHERE id = ?",
+            (policy_id,),
         ).fetchone()
     if not row:
         return None
-    return {"id": row[0], "name": row[1], "gates": json.loads(row[2]), "created_at": row[3]}
+    return {
+        "id": row[0],
+        "name": row[1],
+        "gates": json.loads(row[2]),
+        "created_at": row[3],
+    }
 
 
 def list_eval_policies() -> list[dict]:
@@ -336,10 +395,15 @@ def list_eval_policies() -> list[dict]:
         rows = db.execute(
             "SELECT id, name, gates, created_at FROM eval_policies ORDER BY created_at DESC"
         ).fetchall()
-    return [{"id": r[0], "name": r[1], "gates": json.loads(r[2]), "created_at": r[3]} for r in rows]
+    return [
+        {"id": r[0], "name": r[1], "gates": json.loads(r[2]), "created_at": r[3]}
+        for r in rows
+    ]
 
 
-def upsert_evaluator(evaluator_id: str, name: str, evaluator_type: str, config: dict, now: str) -> None:
+def upsert_evaluator(
+    evaluator_id: str, name: str, evaluator_type: str, config: dict, now: str
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT OR REPLACE INTO evaluators VALUES (?, ?, ?, ?, ?)",
@@ -353,7 +417,13 @@ def list_evaluators() -> list[dict]:
             "SELECT id, name, evaluator_type, config, created_at FROM evaluators ORDER BY created_at DESC"
         ).fetchall()
     return [
-        {"id": r[0], "name": r[1], "type": r[2], "config": json.loads(r[3]), "created_at": r[4]}
+        {
+            "id": r[0],
+            "name": r[1],
+            "type": r[2],
+            "config": json.loads(r[3]),
+            "created_at": r[4],
+        }
         for r in rows
     ]
 
@@ -361,11 +431,18 @@ def list_evaluators() -> list[dict]:
 def get_evaluator(evaluator_id: str) -> dict | None:
     with connect() as db:
         row = db.execute(
-            "SELECT id, name, evaluator_type, config, created_at FROM evaluators WHERE id = ?", (evaluator_id,)
+            "SELECT id, name, evaluator_type, config, created_at FROM evaluators WHERE id = ?",
+            (evaluator_id,),
         ).fetchone()
     if not row:
         return None
-    return {"id": row[0], "name": row[1], "type": row[2], "config": json.loads(row[3]), "created_at": row[4]}
+    return {
+        "id": row[0],
+        "name": row[1],
+        "type": row[2],
+        "config": json.loads(row[3]),
+        "created_at": row[4],
+    }
 
 
 def upsert_issue(issue: dict) -> None:
@@ -378,9 +455,17 @@ def upsert_issue(issue: dict) -> None:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                issue["id"], issue["title"], issue["signature"], issue["severity"], issue["status"],
-                issue["first_seen_run_id"], issue["last_seen_run_id"], issue["occurrence_count"],
-                json.dumps(issue.get("metadata", {})), issue["created_at"], issue["updated_at"],
+                issue["id"],
+                issue["title"],
+                issue["signature"],
+                issue["severity"],
+                issue["status"],
+                issue["first_seen_run_id"],
+                issue["last_seen_run_id"],
+                issue["occurrence_count"],
+                json.dumps(issue.get("metadata", {})),
+                issue["created_at"],
+                issue["updated_at"],
             ),
         )
 
@@ -404,38 +489,47 @@ def get_issue(issue_id: str) -> dict | None:
 
 
 def list_issues(status: str | None = None) -> list[dict]:
-    if status:
-        query = """
-            SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id,
-                   occurrence_count, metadata, created_at, updated_at
-            FROM issues
-            WHERE status = ?
-            ORDER BY updated_at DESC
-        """
-        args: tuple[str, ...] = (status,)
-    else:
-        query = """
-            SELECT id, title, signature, severity, status, first_seen_run_id, last_seen_run_id,
-                   occurrence_count, metadata, created_at, updated_at
-            FROM issues
-            ORDER BY updated_at DESC
-        """
-        args = ()
     with connect() as db:
         if status:
-            rows = db.execute(query, args).fetchall()
+            rows = db.execute(
+                """
+                SELECT id, title, signature, severity, status, first_seen_run_id,
+                       last_seen_run_id, occurrence_count, metadata, created_at, updated_at
+                FROM issues
+                WHERE status = ?
+                ORDER BY updated_at DESC
+                """,
+                (status,),
+            ).fetchall()
         else:
-            rows = db.execute(query).fetchall()
+            rows = db.execute(
+                """
+                SELECT id, title, signature, severity, status, first_seen_run_id,
+                       last_seen_run_id, occurrence_count, metadata, created_at, updated_at
+                FROM issues
+                ORDER BY updated_at DESC
+                """
+            ).fetchall()
     return [_issue_from_row(row) for row in rows]
 
 
 def update_issue_status(issue_id: str, status: str, now: str) -> None:
     with connect() as db:
-        db.execute("UPDATE issues SET status = ?, updated_at = ? WHERE id = ?", (status, now, issue_id))
+        db.execute(
+            "UPDATE issues SET status = ?, updated_at = ? WHERE id = ?",
+            (status, now, issue_id),
+        )
 
 
-def add_annotation(annotation_id: str, target_type: str, target_id: str, label: str,
-                   score: float | None, comment: str, now: str) -> None:
+def add_annotation(
+    annotation_id: str,
+    target_type: str,
+    target_id: str,
+    label: str,
+    score: float | None,
+    comment: str,
+    now: str,
+) -> None:
     with connect() as db:
         db.execute(
             "INSERT OR REPLACE INTO annotations VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -443,28 +537,58 @@ def add_annotation(annotation_id: str, target_type: str, target_id: str, label: 
         )
 
 
-def list_annotations(target_type: str | None = None, target_id: str | None = None) -> list[dict]:
-    base_query = "SELECT id, target_type, target_id, label, score, comment, created_at FROM annotations"
-    args: tuple[str, ...]
-    if target_type and target_id:
-        query = base_query + " WHERE target_type = ? AND target_id = ? ORDER BY created_at DESC"
-        args = (target_type, target_id)
-    elif target_type:
-        query = base_query + " WHERE target_type = ? ORDER BY created_at DESC"
-        args = (target_type,)
-    elif target_id:
-        query = base_query + " WHERE target_id = ? ORDER BY created_at DESC"
-        args = (target_id,)
-    else:
-        query = base_query + " ORDER BY created_at DESC"
-        args = ()
+def list_annotations(
+    target_type: str | None = None, target_id: str | None = None
+) -> list[dict]:
     with connect() as db:
-        if target_type or target_id:
-            rows = db.execute(query, args).fetchall()
+        if target_type and target_id:
+            rows = db.execute(
+                """
+                SELECT id, target_type, target_id, label, score, comment, created_at
+                FROM annotations
+                WHERE target_type = ? AND target_id = ?
+                ORDER BY created_at DESC
+                """,
+                (target_type, target_id),
+            ).fetchall()
+        elif target_type:
+            rows = db.execute(
+                """
+                SELECT id, target_type, target_id, label, score, comment, created_at
+                FROM annotations
+                WHERE target_type = ?
+                ORDER BY created_at DESC
+                """,
+                (target_type,),
+            ).fetchall()
+        elif target_id:
+            rows = db.execute(
+                """
+                SELECT id, target_type, target_id, label, score, comment, created_at
+                FROM annotations
+                WHERE target_id = ?
+                ORDER BY created_at DESC
+                """,
+                (target_id,),
+            ).fetchall()
         else:
-            rows = db.execute(query).fetchall()
+            rows = db.execute(
+                """
+                SELECT id, target_type, target_id, label, score, comment, created_at
+                FROM annotations
+                ORDER BY created_at DESC
+                """
+            ).fetchall()
     return [
-        {"id": r[0], "target_type": r[1], "target_id": r[2], "label": r[3], "score": r[4], "comment": r[5], "created_at": r[6]}
+        {
+            "id": r[0],
+            "target_type": r[1],
+            "target_id": r[2],
+            "label": r[3],
+            "score": r[4],
+            "comment": r[5],
+            "created_at": r[6],
+        }
         for r in rows
     ]
 
@@ -483,3 +607,118 @@ def _issue_from_row(row) -> dict:
         "created_at": row[9],
         "updated_at": row[10],
     }
+
+
+class AgentStore:
+    def upsert(
+        self,
+        agent_id: str,
+        name: str,
+        description: str,
+        config: dict[str, Any],
+        now: str,
+    ) -> None:
+        upsert_agent(agent_id, name, description, config, now)
+
+    def list(self) -> list[dict[str, Any]]:
+        return list_agents()
+
+    def get(self, agent_id: str) -> dict[str, Any] | None:
+        return get_agent(agent_id)
+
+
+class RunStore:
+    def save(
+        self,
+        run_id: str,
+        agent_id: str,
+        score: int,
+        status: str,
+        summary: str,
+        body: dict[str, Any],
+        now: str,
+    ) -> None:
+        save_run(run_id, agent_id, score, status, summary, body, now)
+
+    def get(self, run_id: str) -> dict[str, Any] | None:
+        return get_run_by_id(run_id)
+
+    def list(self, limit: int = 20) -> list[dict[str, Any]]:
+        return list_runs(limit)
+
+    def scenarios(self, run_id: str) -> list[dict[str, Any]]:
+        return get_run_scenarios(run_id)
+
+    def save_coverage(self, agent_id: str, report: dict[str, Any], now: str) -> None:
+        save_coverage(agent_id, report, now)
+
+    def get_coverage(self, agent_id: str) -> dict[str, Any] | None:
+        return get_coverage(agent_id)
+
+
+class DatasetStore:
+    def create(
+        self,
+        dataset_id: str,
+        name: str,
+        description: str,
+        source: str,
+        metadata: dict[str, Any],
+        now: str,
+    ) -> None:
+        create_dataset(dataset_id, name, description, source, metadata, now)
+
+    def list(self) -> list[dict[str, Any]]:
+        return list_datasets()
+
+    def get(self, dataset_id: str) -> dict[str, Any] | None:
+        return get_dataset(dataset_id)
+
+    def add_item(
+        self,
+        item_id: str,
+        dataset_id: str,
+        scenario: dict[str, Any],
+        source_run_id: str,
+        source_scenario_name: str,
+        tags: list[str],
+        now: str,
+    ) -> None:
+        add_dataset_item(
+            item_id,
+            dataset_id,
+            scenario,
+            source_run_id,
+            source_scenario_name,
+            tags,
+            now,
+        )
+
+
+class PolicyStore:
+    def upsert_eval_policy(
+        self, policy_id: str, name: str, gates: dict[str, Any], now: str
+    ) -> None:
+        upsert_eval_policy(policy_id, name, gates, now)
+
+    def get_eval_policy(self, policy_id: str) -> dict[str, Any] | None:
+        return get_eval_policy(policy_id)
+
+    def list_eval_policies(self) -> list[dict[str, Any]]:
+        return list_eval_policies()
+
+    def upsert_evaluator(
+        self,
+        evaluator_id: str,
+        name: str,
+        evaluator_type: str,
+        config: dict[str, Any],
+        now: str,
+    ) -> None:
+        upsert_evaluator(evaluator_id, name, evaluator_type, config, now)
+
+    def list_evaluators(self) -> list[dict[str, Any]]:
+        return list_evaluators()
+
+    def get_evaluator(self, evaluator_id: str) -> dict[str, Any] | None:
+        return get_evaluator(evaluator_id)

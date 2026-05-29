@@ -1,16 +1,27 @@
 import json
 import subprocess
 import time
-from dataclasses import dataclass, field
 from typing import Any
 
+from .common import (
+    AdapterResponse,
+    adapter_result_from_response,
+    response_body_from_output,
+    tool_calls_from_response,
+)
 
-@dataclass
-class StdioResponse:
-    content: str
-    tool_calls: list[dict] = field(default_factory=list)
-    latency_ms: int = 0
-    error: str | None = None
+
+def _process_failed(proc: subprocess.CompletedProcess) -> bool:
+    return proc.returncode != 0
+
+
+def _process_error_response(
+    proc: subprocess.CompletedProcess,
+    latency: int,
+) -> AdapterResponse:
+    stderr = proc.stderr[:200]
+    message = f"Process exited with code {proc.returncode}: {stderr}"
+    return AdapterResponse(content="", latency_ms=latency, error=message)
 
 
 class StdioAdapter:
@@ -19,11 +30,13 @@ class StdioAdapter:
         self.cwd = cwd
         self.timeout = timeout
 
-    def send_prompt(self, prompt: str, context: dict | None = None) -> StdioResponse:
-        payload = json.dumps({
-            "prompt": prompt,
-            "context": context or {},
-        })
+    def send_prompt(self, prompt: str, context: dict | None = None) -> AdapterResponse:
+        payload = json.dumps(
+            {
+                "prompt": prompt,
+                "context": context or {},
+            },
+        )
         start = time.perf_counter()
         try:
             proc = subprocess.run(
@@ -35,40 +48,32 @@ class StdioAdapter:
                 cwd=self.cwd,
             )
             latency = int((time.perf_counter() - start) * 1000)
-            if proc.returncode != 0:
-                return StdioResponse(
-                    content="",
-                    latency_ms=latency,
-                    error=f"Process exited with code {proc.returncode}: {proc.stderr[:200]}",
-                )
-            try:
-                result = json.loads(proc.stdout)
-            except json.JSONDecodeError:
-                result = {"content": proc.stdout}
-            return StdioResponse(
+            if _process_failed(proc):
+                return _process_error_response(proc, latency)
+            result = response_body_from_output(proc.stdout)
+            return AdapterResponse(
                 content=result.get("content", result.get("response", proc.stdout)),
-                tool_calls=result.get("tool_calls", result.get("tools", [])),
+                tool_calls=tool_calls_from_response(result),
                 latency_ms=latency,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired:  # tree-sitter-patterns:bare-except false positive; catches TimeoutExpired only.
             latency = int((time.perf_counter() - start) * 1000)
-            return StdioResponse(content="", latency_ms=latency, error=f"Command timed out after {self.timeout}s")
-        except (OSError, ValueError, json.JSONDecodeError) as e:
+            return AdapterResponse(
+                content="",
+                latency_ms=latency,
+                error=f"Command timed out after {self.timeout}s",
+            )
+        except OSError as exc:  # tree-sitter-patterns:bare-except false positive; catches OSError only.
             latency = int((time.perf_counter() - start) * 1000)
-            return StdioResponse(content="", latency_ms=latency, error=str(e))
+            return AdapterResponse(content="", latency_ms=latency, error=str(exc))
+        except ValueError as exc:  # tree-sitter-patterns:bare-except false positive; catches ValueError only.
+            latency = int((time.perf_counter() - start) * 1000)
+            return AdapterResponse(content="", latency_ms=latency, error=str(exc))
 
-    def run_scenario(self, scenario: Any, expected_tools: list[str] | None = None) -> dict:
+    def run_scenario(
+        self,
+        scenario: Any,
+        expected_tools: list[str] | None = None,
+    ) -> dict:
         resp = self.send_prompt(scenario.user_prompt, scenario.metadata)
-        tool_names = [t.get("name", t.get("tool", "")) for t in resp.tool_calls]
-        return {
-            "scenario_name": scenario.name,
-            "scenario_type": scenario.scenario_type.value,
-            "passed": not resp.error,
-            "score": 100 if not resp.error else 0,
-            "called_tools": tool_names,
-            "violations": [],
-            "trace": [],
-            "latency_ms": resp.latency_ms,
-            "total_cost": 0.0,
-            "failures": [resp.error] if resp.error else [],
-        }
+        return adapter_result_from_response(scenario, resp)

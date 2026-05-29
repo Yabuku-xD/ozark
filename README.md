@@ -17,14 +17,25 @@
   <img alt="Backend" src="https://img.shields.io/badge/backend-Python-2f6f52?labelColor=555555&style=for-the-badge">
 </p>
 
-Ozark helps teams test AI agents before production. It runs generated and custom scenarios against simulated or live agents, records traces, checks guardrails, and fails release gates when confidence drops.
+Ozark helps teams test AI agents before production. It runs generated and custom scenarios against simulated or live agents, records traces, checks guardrails, groups evaluator findings, and fails release gates when confidence drops.
 
 ## Features
 
 - Local scenario runs for support, coding, data, ops, finance, healthcare, recruiting, sales, and adversarial cases.
+- Risk-aware scenario metadata for low, medium, high, critical, and safety-critical evaluation paths.
 - Deterministic guardrail checks for secrets, blocked tools, latency budgets, evaluator findings, and regressions.
-- Dataset promotion, issue grouping, OpenTelemetry-style exports, and CI-ready release gates.
+- Release policies that block on score, confidence, critical violations, high-risk failures, safety-critical failures, and risk-adjusted pass rate.
+- Dataset promotion, issue grouping, OpenTelemetry-style exports, coverage reports, and CI-ready release gates.
 - React dashboard plus CLI/API workflow for repeatable agent evaluations.
+
+## Architecture
+
+Ozark keeps the HTTP layer thin and moves evaluation orchestration into backend modules:
+
+- `backend/engine/run_pipeline.py` owns simulation, coverage, evaluator execution, issue recording, release-gate evaluation, and run persistence.
+- `backend/adapters/common.py` defines the shared adapter response shape used by HTTP and stdio agent adapters.
+- `backend/db.py` exposes focused store interfaces for agents, runs, datasets, policies, and evaluators while retaining SQLite as the default adapter.
+- `backend/engine/coverage.py`, `eval_policy.py`, `scoring.py`, and `reports.py` share risk vocabulary for summaries, recommendations, release reports, and gates.
 
 ## Quick start
 

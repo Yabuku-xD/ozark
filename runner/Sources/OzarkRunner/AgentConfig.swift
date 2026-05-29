@@ -67,6 +67,13 @@ enum AgentLoadError: LocalizedError {
 }
 
 struct AgentLoader {
+    private static func ensureID(_ config: inout AgentConfig) {
+        if config.id.isEmpty {
+            let slug = config.name.lowercased().replacingOccurrences(of: " ", with: "-")
+            config.id = slug + "-" + UUID().uuidString.prefix(6).lowercased()
+        }
+    }
+
     /// Load an agent config from a file or directory.
     /// If given a directory, looks for config.json, agent.json, or ozark.json inside it.
     static func load(from url: URL) throws -> AgentConfig {
@@ -104,9 +111,7 @@ struct AgentLoader {
         // First try to decode as a full agent config
         do {
             var config = try JSONDecoder().decode(AgentConfig.self, from: data)
-            if config.id.isEmpty {
-                config.id = config.name.lowercased().replacingOccurrences(of: " ", with: "-") + "-" + UUID().uuidString.prefix(6).lowercased()
-            }
+            ensureID(&config)
             return config
         } catch {
             // Try to decode as a nested format: { "config": { ... } }
@@ -114,9 +119,7 @@ struct AgentLoader {
                let configDict = wrapper["config"] as? [String: Any] {
                 let configData = try JSONSerialization.data(withJSONObject: configDict)
                 var config = try JSONDecoder().decode(AgentConfig.self, from: configData)
-                if config.id.isEmpty {
-                    config.id = config.name.lowercased().replacingOccurrences(of: " ", with: "-") + "-" + UUID().uuidString.prefix(6).lowercased()
-                }
+                ensureID(&config)
                 return config
             }
             throw AgentLoadError.invalidJSON(error.localizedDescription)

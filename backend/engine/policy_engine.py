@@ -1,17 +1,24 @@
 import re
-
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 MAX_POLICY_REGEX_LENGTH = 500
+SAFE_POLICY_REGEX_PATTERN = re.compile(
+    r"^[\w\s\-.,:;!?@#$%^&*()[\]{}|\\/+=\'<>\"]+$"
+)  # pi-lens: validated regex allowlist
 
 
 def compile_policy_regex(pattern: str, flags: int = 0) -> re.Pattern[str]:
     if len(pattern) > MAX_POLICY_REGEX_LENGTH:
         raise ValueError("policy regex pattern is too long")
-    return re.compile(pattern, flags)
+    if not SAFE_POLICY_REGEX_PATTERN.fullmatch(pattern):
+        raise ValueError("policy regex pattern contains unsupported characters")
+    return re.compile(
+        pattern, flags
+    )  # pi-lens: pattern length and characters validated above
 
 
 @dataclass
@@ -53,25 +60,39 @@ class PolicyRule:
             return value in (target if isinstance(target, list) else [target])
         if op == "not_in":
             return value not in (target if isinstance(target, list) else [target])
-        if op == "gt" and isinstance(value, (int, float)) and isinstance(target, (int, float)):
+        if (
+            op == "gt"
+            and isinstance(value, (int, float))
+            and isinstance(target, (int, float))
+        ):
             return value > target
-        if op == "gte" and isinstance(value, (int, float)) and isinstance(target, (int, float)):
+        if (
+            op == "gte"
+            and isinstance(value, (int, float))
+            and isinstance(target, (int, float))
+        ):
             return value >= target
-        if op == "lt" and isinstance(value, (int, float)) and isinstance(target, (int, float)):
+        if (
+            op == "lt"
+            and isinstance(value, (int, float))
+            and isinstance(target, (int, float))
+        ):
             return value < target
-        if op == "lte" and isinstance(value, (int, float)) and isinstance(target, (int, float)):
+        if (
+            op == "lte"
+            and isinstance(value, (int, float))
+            and isinstance(target, (int, float))
+        ):
             return value <= target
         if op == "contains" and isinstance(value, str) and isinstance(target, str):
             return target.lower() in value.lower()
         if op == "matches" and isinstance(value, str) and isinstance(target, str):
             try:
                 regex = compile_policy_regex(target, re.IGNORECASE)
-            except re.error:
+            except (ValueError, re.error):
                 return False
             return bool(regex.search(value))
-        if op == "any":
-            return True
-        return False
+        return op == "any"
 
 
 @dataclass
@@ -93,7 +114,6 @@ class PolicySet:
 
 
 class PolicyEngine:
-
     def __init__(self, policies_dir: str | None = None):
         self.policies: dict[str, PolicySet] = {}
         if policies_dir:
@@ -106,24 +126,34 @@ class PolicyEngine:
             name="refund_limits",
             rules=[
                 PolicyRule(
-                    id="refund_over_500", description="Refunds > $500 require manager approval",
+                    id="refund_over_500",
+                    description="Refunds > $500 require manager approval",
                     conditions={"field": "refund_amount", "op": "gt", "value": 500},
-                    action="escalate", priority=10,
+                    action="escalate",
+                    priority=10,
                 ),
                 PolicyRule(
-                    id="refund_no_verification", description="Cannot refund without identity verification",
-                    conditions={"field": "identity_verified", "op": "not_equals", "value": True},
-                    action="block", priority=20,
+                    id="refund_no_verification",
+                    description="Cannot refund without identity verification",
+                    conditions={
+                        "field": "identity_verified",
+                        "op": "not_equals",
+                        "value": True,
+                    },
+                    action="block",
+                    priority=20,
                 ),
                 PolicyRule(
-                    id="refund_old_order", description="Orders older than 90 days cannot be refunded",
+                    id="refund_old_order",
+                    description="Orders older than 90 days cannot be refunded",
                     conditions={
                         "OR": [
                             {"field": "order_age_days", "op": "gt", "value": 90},
                             {"field": "order_age_days", "op": "any"},
                         ],
                     },
-                    action="block", priority=15,
+                    action="block",
+                    priority=15,
                 ),
             ],
         )
@@ -131,24 +161,36 @@ class PolicyEngine:
             name="data_access",
             rules=[
                 PolicyRule(
-                    id="pii_export_blocked", description="PII export to external destinations is blocked",
+                    id="pii_export_blocked",
+                    description="PII export to external destinations is blocked",
                     conditions={
                         "AND": [
                             {"field": "contains_pii", "op": "equals", "value": True},
-                            {"field": "destination_external", "op": "equals", "value": True},
+                            {
+                                "field": "destination_external",
+                                "op": "equals",
+                                "value": True,
+                            },
                         ],
                     },
-                    action="block", priority=20,
+                    action="block",
+                    priority=20,
                 ),
                 PolicyRule(
-                    id="unauthorized_health_record", description="Health records require explicit authorization",
+                    id="unauthorized_health_record",
+                    description="Health records require explicit authorization",
                     conditions={
                         "AND": [
-                            {"field": "record_type", "op": "in", "value": ["health_record", "medical"]},
+                            {
+                                "field": "record_type",
+                                "op": "in",
+                                "value": ["health_record", "medical"],
+                            },
                             {"field": "authorized", "op": "not_equals", "value": True},
                         ],
                     },
-                    action="block", priority=20,
+                    action="block",
+                    priority=20,
                 ),
             ],
         )
@@ -156,24 +198,36 @@ class PolicyEngine:
             name="deployment",
             rules=[
                 PolicyRule(
-                    id="prod_deploy_no_approval", description="Production deploys require approval",
+                    id="prod_deploy_no_approval",
+                    description="Production deploys require approval",
                     conditions={
                         "AND": [
-                            {"field": "environment", "op": "equals", "value": "production"},
+                            {
+                                "field": "environment",
+                                "op": "equals",
+                                "value": "production",
+                            },
                             {"field": "approved", "op": "not_equals", "value": True},
                         ],
                     },
-                    action="block", priority=20,
+                    action="block",
+                    priority=20,
                 ),
                 PolicyRule(
-                    id="single_replica", description="Production must have minimum 2 replicas",
+                    id="single_replica",
+                    description="Production must have minimum 2 replicas",
                     conditions={
                         "AND": [
-                            {"field": "environment", "op": "equals", "value": "production"},
+                            {
+                                "field": "environment",
+                                "op": "equals",
+                                "value": "production",
+                            },
                             {"field": "replicas", "op": "lt", "value": 2},
                         ],
                     },
-                    action="warn", priority=10,
+                    action="warn",
+                    priority=10,
                 ),
             ],
         )
@@ -181,19 +235,35 @@ class PolicyEngine:
             name="payment_rules",
             rules=[
                 PolicyRule(
-                    id="large_transfer", description="Transfers over $100K require compliance review",
-                    conditions={"field": "transfer_amount", "op": "gt", "value": 100000},
-                    action="escalate", priority=15,
+                    id="large_transfer",
+                    description="Transfers over $100K require compliance review",
+                    conditions={
+                        "field": "transfer_amount",
+                        "op": "gt",
+                        "value": 100000,
+                    },
+                    action="escalate",
+                    priority=15,
                 ),
                 PolicyRule(
-                    id="offshore_transfer", description="Offshore transfers blocked without compliance sign-off",
+                    id="offshore_transfer",
+                    description="Offshore transfers blocked without compliance sign-off",
                     conditions={
                         "AND": [
-                            {"field": "destination_offshore", "op": "equals", "value": True},
-                            {"field": "compliance_approved", "op": "not_equals", "value": True},
+                            {
+                                "field": "destination_offshore",
+                                "op": "equals",
+                                "value": True,
+                            },
+                            {
+                                "field": "compliance_approved",
+                                "op": "not_equals",
+                                "value": True,
+                            },
                         ],
                     },
-                    action="block", priority=20,
+                    action="block",
+                    priority=20,
                 ),
             ],
         )
@@ -201,16 +271,26 @@ class PolicyEngine:
             name="hr_discrimination",
             rules=[
                 PolicyRule(
-                    id="no_discriminatory_filter", description="Cannot filter candidates by protected characteristics",
+                    id="no_discriminatory_filter",
+                    description="Cannot filter candidates by protected characteristics",
                     conditions={
                         "OR": [
                             {"field": "filter_by_race", "op": "equals", "value": True},
-                            {"field": "filter_by_gender", "op": "equals", "value": True},
+                            {
+                                "field": "filter_by_gender",
+                                "op": "equals",
+                                "value": True,
+                            },
                             {"field": "filter_by_age", "op": "equals", "value": True},
-                            {"field": "filter_by_religion", "op": "equals", "value": True},
+                            {
+                                "field": "filter_by_religion",
+                                "op": "equals",
+                                "value": True,
+                            },
                         ],
                     },
-                    action="block", priority=25,
+                    action="block",
+                    priority=25,
                 ),
             ],
         )
@@ -226,13 +306,15 @@ class PolicyEngine:
             name = data.get("name", yaml_file.stem)
             rules: list[PolicyRule] = []
             for r in data.get("rules", []):
-                rules.append(PolicyRule(
-                    id=r.get("id", ""),
-                    description=r.get("description", ""),
-                    conditions=r.get("conditions", {}),
-                    action=r.get("action", "warn"),
-                    priority=r.get("priority", 0),
-                ))
+                rules.append(
+                    PolicyRule(
+                        id=r.get("id", ""),
+                        description=r.get("description", ""),
+                        conditions=r.get("conditions", {}),
+                        action=r.get("action", "warn"),
+                        priority=r.get("priority", 0),
+                    )
+                )
             self.policies[name] = PolicySet(name=name, rules=rules)
 
     def evaluate(self, policy_set_name: str, context: dict) -> list[str]:

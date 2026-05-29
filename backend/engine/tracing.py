@@ -1,6 +1,6 @@
 import json
 import hashlib
-from ..models import TraceEvent, ScenarioResult
+from ..models import TraceEvent
 
 
 class TraceRecorder:

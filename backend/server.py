@@ -7,22 +7,45 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from . import models
-from .db import init_db, upsert_agent, list_agents, get_agent, list_runs, save_run
-from .db import get_run_by_id, save_coverage, get_coverage
-from .db import create_dataset, list_datasets, get_dataset, add_dataset_item
-from .db import upsert_eval_policy, get_eval_policy, list_eval_policies
-from .db import upsert_evaluator, list_evaluators, get_evaluator
-from .db import upsert_issue, get_issue_by_signature, get_issue, list_issues, update_issue_status
-from .db import add_annotation, list_annotations
+from .db import (
+    add_annotation,
+    add_dataset_item,
+    create_dataset,
+    get_agent,
+    get_coverage,
+    get_dataset,
+    get_eval_policy,
+    get_evaluator,
+    get_issue,
+    get_run_by_id,
+    init_db,
+    list_agents,
+    list_annotations,
+    list_datasets,
+    list_eval_policies,
+    list_evaluators,
+    list_issues,
+    list_runs,
+    save_run,
+    update_issue_status,
+    upsert_agent,
+    upsert_eval_policy,
+    upsert_evaluator,
+)
 from .engine.dataset_io import export_dataset, load_dataset_pack
 from .engine.datasets import scenario_dict_to_definition, scenario_from_result
 from .engine.eval_policy import DEFAULT_GATES, EvalPolicy
-from .engine.evaluators import EvaluatorRunner, builtin_evaluators
+from .engine.evaluators import builtin_evaluators
 from .engine.experiments import run_experiment_matrix
 from .engine.ingest import load_trace_payload, normalize_payload
-from .engine.issues import findings_to_issues
 from .engine.otel_export import run_to_otel_spans
 from .engine.reports import build_release_report, render_markdown_report
+from .engine.roadmap import product_roadmap
+from .engine.run_pipeline import (
+    RunPipeline,
+    evaluate_with_configured_evaluators,
+    record_issues,
+)
 from .engine.scenario_gen import ScenarioGenerator
 from .engine.simulator import SimulationEngine
 from .engine.tracing import ReplayEngine
@@ -81,7 +104,13 @@ def bootstrap() -> None:
     for ba in BUILTIN_AGENTS:
         upsert_agent(ba["id"], ba["name"], ba["description"], ba["config"], now)
     for evaluator in builtin_evaluators():
-        upsert_evaluator(evaluator["id"], evaluator["name"], evaluator["type"], evaluator["config"], now)
+        upsert_evaluator(
+            evaluator["id"],
+            evaluator["name"],
+            evaluator["type"],
+            evaluator["config"],
+            now,
+        )
 
     agent_path = os.environ.get("OZARK_AGENT_PATH")
     if agent_path:
@@ -100,6 +129,47 @@ def read_json(handler) -> dict:
     return json.loads(handler.rfile.read(length).decode("utf-8"))
 
 
+def _scenario_from_template(
+    tmpl: dict,
+    agent_type: str = "custom",
+) -> models.ScenarioDefinition:
+    return models.ScenarioDefinition(
+        name=tmpl.get("prompt", "")[:60].strip(),
+        scenario_type=models.ScenarioType(tmpl.get("type", "happy_path")),
+        description=tmpl.get("prompt", "")[:200],
+        user_prompt=tmpl.get("prompt", ""),
+        expected_tools=tmpl.get("expected_tools", []),
+        blocked_tools=tmpl.get("blocked_tools", []),
+        sensitive_data=tmpl.get("sensitive_data", False),
+        difficulty=tmpl.get("difficulty", "medium"),
+        agent_type=agent_type,
+        risk_level=tmpl.get("risk_level", "medium"),
+        user_impact=tmpl.get("user_impact", "moderate"),
+        risk_tags=tmpl.get("risk_tags", []),
+    )
+
+
+def _dataset_issue_tags(issue: dict, scenario: dict) -> list[str]:
+    return [
+        "issue",
+        issue["severity"],
+        issue["id"],
+        scenario.get("difficulty", "medium"),
+    ]
+
+
+def _load_dataset_scenarios(
+    dataset_id: str,
+) -> tuple[list[models.ScenarioDefinition], dict | None]:
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        return [], None
+    scenarios = []
+    for item in dataset["items"]:
+        scenarios.append(scenario_dict_to_definition(item["scenario"]))
+    return scenarios, dataset
+
+
 def send_json(handler, payload: dict, status: int = 200) -> None:
     body = json.dumps(payload, indent=2).encode("utf-8")
     handler.send_response(status)
@@ -110,21 +180,6 @@ def send_json(handler, payload: dict, status: int = 200) -> None:
     handler.send_header("Access-Control-Allow-Headers", "*")
     handler.end_headers()
     handler.wfile.write(body)
-
-
-def _evaluate_with_configured_evaluators(run: dict, requested: list | None = None) -> dict:
-    if requested:
-        evaluators = requested
-    else:
-        evaluators = list_evaluators() or builtin_evaluators()
-    return EvaluatorRunner(evaluators).evaluate_run(run)
-
-
-def _record_issues(run: dict, eval_report: dict) -> list[dict]:
-    issues = findings_to_issues(run, eval_report, get_issue_by_signature)
-    for issue in issues:
-        upsert_issue(issue)
-    return issues
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -164,7 +219,13 @@ class Handler(SimpleHTTPRequestHandler):
                 count = int(params.get("count", ["100"])[0])
                 gen = ScenarioGenerator()
                 scenarios = gen.generate_all(agent_type=agent_type, count=count)
-                send_json(self, {"scenarios": [s.to_dict() for s in scenarios], "count": len(scenarios)})
+                send_json(
+                    self,
+                    {
+                        "scenarios": [s.to_dict() for s in scenarios],
+                        "count": len(scenarios),
+                    },
+                )
             elif path == "/api/runs":
                 limit = int(params.get("limit", ["20"])[0])
                 send_json(self, {"runs": list_runs(limit)})
@@ -185,9 +246,15 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 send_json(self, {"dataset": dataset})
             elif path == "/api/eval-policies":
-                send_json(self, {"policies": list_eval_policies(), "defaults": DEFAULT_GATES})
+                send_json(
+                    self,
+                    {"policies": list_eval_policies(), "defaults": DEFAULT_GATES},
+                )
             elif path == "/api/evaluators":
-                send_json(self, {"evaluators": list_evaluators(), "builtins": builtin_evaluators()})
+                send_json(
+                    self,
+                    {"evaluators": list_evaluators(), "builtins": builtin_evaluators()},
+                )
             elif path == "/api/issues":
                 status = params.get("status", [None])[0]
                 send_json(self, {"issues": list_issues(status)})
@@ -199,7 +266,17 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 send_json(self, {"issue": issue})
             elif path == "/api/annotations":
-                send_json(self, {"annotations": list_annotations(params.get("target_type", [None])[0], params.get("target_id", [None])[0])})
+                send_json(
+                    self,
+                    {
+                        "annotations": list_annotations(
+                            params.get("target_type", [None])[0],
+                            params.get("target_id", [None])[0],
+                        ),
+                    },
+                )
+            elif path == "/api/product-roadmap":
+                send_json(self, product_roadmap())
             elif path.startswith("/api/reports/"):
                 run_id = path.split("/api/reports/")[1]
                 run = get_run_by_id(run_id)
@@ -208,17 +285,29 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 run_body = run["trace"]
                 stored = run_body.get("evaluation", {})
-                eval_report = stored.get("eval_report") or _evaluate_with_configured_evaluators(run_body)
+                eval_report = stored.get(
+                    "eval_report",
+                ) or evaluate_with_configured_evaluators(run_body)
                 gate = stored.get("gate") or EvalPolicy().evaluate(run_body).to_dict()
                 report_issue_signatures = {
                     finding.get("signature")
                     for finding in eval_report.get("findings", [])
                     if not finding.get("passed") and finding.get("signature")
                 }
-                issues = [issue for issue in list_issues() if issue.get("signature") in report_issue_signatures]
+                issues = [
+                    issue
+                    for issue in list_issues()
+                    if issue.get("signature") in report_issue_signatures
+                ]
                 report = build_release_report(run_body, gate, eval_report, issues)
                 if params.get("format", ["json"])[0] == "md":
-                    send_json(self, {"markdown": render_markdown_report(report, issues), "report": report})
+                    send_json(
+                        self,
+                        {
+                            "markdown": render_markdown_report(report, issues),
+                            "report": report,
+                        },
+                    )
                 else:
                     send_json(self, {"report": report, "issues": issues})
             elif path == "/api/runs/diff":
@@ -272,7 +361,18 @@ class Handler(SimpleHTTPRequestHandler):
                 description = config.get("description", "")
                 agent_id = name.lower().replace(" ", "-") + "-" + uuid.uuid4().hex[:6]
                 upsert_agent(agent_id, name, description, config, models.iso_now())
-                send_json(self, {"agent": {"id": agent_id, "name": name, "description": description, "config": config}}, 201)
+                send_json(
+                    self,
+                    {
+                        "agent": {
+                            "id": agent_id,
+                            "name": name,
+                            "description": description,
+                            "config": config,
+                        },
+                    },
+                    201,
+                )
             elif path == "/api/agents/import":
                 payload = read_json(self)
                 file_path = payload.get("path", "")
@@ -281,7 +381,18 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 agent_id, name, description, config = _import_agent_from_path(file_path)
                 upsert_agent(agent_id, name, description, config, models.iso_now())
-                send_json(self, {"agent": {"id": agent_id, "name": name, "description": description, "config": config}}, 201)
+                send_json(
+                    self,
+                    {
+                        "agent": {
+                            "id": agent_id,
+                            "name": name,
+                            "description": description,
+                            "config": config,
+                        },
+                    },
+                    201,
+                )
             elif path == "/api/runs":
                 payload = read_json(self)
                 agent_id = payload.get("agent_id", self._get_default_agent_id())
@@ -291,54 +402,54 @@ class Handler(SimpleHTTPRequestHandler):
                     send_json(self, {"error": "Agent not found"}, 404)
                     return
                 agent_config = models.AgentConfig.from_dict(agent_data["config"])
+                agent_type = payload.get(
+                    "agent_type",
+                    agent_data["config"].get("agent_type", "customer_support"),
+                )
                 dataset_id = payload.get("dataset_id")
                 if dataset_id:
-                    dataset = get_dataset(dataset_id)
+                    scenarios, dataset = _load_dataset_scenarios(dataset_id)
                     if not dataset:
                         send_json(self, {"error": "Dataset not found"}, 404)
                         return
-                    scenarios = [scenario_dict_to_definition(item["scenario"]) for item in dataset["items"]]
                 else:
                     gen = ScenarioGenerator()
-                    agent_type = payload.get("agent_type", agent_data["config"].get("agent_type", "customer_support"))
-                    scenarios = gen.generate_all(agent_type=agent_type, count=scenario_count)
-                engine = SimulationEngine(agent_config, scenarios, seed=int(payload.get("seed", 42)))
-                run = engine.run()
-
-                from .engine.coverage import CoverageAnalyzer
-                tools = [t.name for t in agent_config.tools]
-                guardrails = [g.id for g in agent_config.guardrails]
-                cov = CoverageAnalyzer(all_tools=tools, all_guardrails=guardrails)
-                for r in run.results:
-                    for t in r.called_tools:
-                        cov.record_tool_call(t)
-                    for v in r.violations:
-                        cov.record_guardrail(v.guardrail)
-                    cov.record_tool_combination(r.called_tools)
-                    cov.record_run()
-                report = cov.generate_report()
-                save_coverage(agent_id, report.to_dict(), models.iso_now())
-                run_body = run.to_dict()
-                eval_report = _evaluate_with_configured_evaluators(run_body, payload.get("evaluators"))
-                issues = _record_issues(run_body, eval_report)
-                policy = EvalPolicy(payload.get("gates"))
-                gate_result = policy.evaluate(run_body)
-                run_body["evaluation"] = {"eval_report": eval_report, "gate": gate_result.to_dict(), "issue_signatures": [issue["signature"] for issue in issues]}
-                save_run(run.id, agent_id, run.score, run.status, run.summary, run_body, models.iso_now())
-                send_json(self, {"run": run_body, "gate": gate_result.to_dict(), "eval_report": eval_report}, 201)
+                    scenarios = gen.generate_all(
+                        agent_type=agent_type,
+                        count=scenario_count,
+                    )
+                result = RunPipeline().run_simulation(
+                    agent_id=agent_id,
+                    agent_config=agent_config,
+                    scenarios=scenarios,
+                    agent_type=agent_type,
+                    scenario_count=scenario_count,
+                    seed=int(payload.get("seed", 42)),
+                    evaluators=payload.get("evaluators"),
+                    gates=payload.get("gates"),
+                )
+                send_json(self, result.response_body(), 201)
             elif path == "/api/runs/live":
                 payload = read_json(self)
                 agent_id = payload.get("agent_id", self._get_default_agent_id())
                 endpoint = payload.get("endpoint", "")
                 if not endpoint:
-                    send_json(self, {"error": "Missing 'endpoint' field for live agent connection"}, 400)
+                    send_json(
+                        self,
+                        {"error": "Missing 'endpoint' field for live agent connection"},
+                        400,
+                    )
                     return
                 scenario_count = int(payload.get("scenario_count", 10))
                 agent_type = payload.get("agent_type", "customer_support")
                 gen = ScenarioGenerator()
-                scenarios = gen.generate_all(agent_type=agent_type, count=scenario_count)
+                scenarios = gen.generate_all(
+                    agent_type=agent_type,
+                    count=scenario_count,
+                )
 
                 from .adapters.http_adapter import HttpAdapter
+
                 adapter = HttpAdapter(endpoint=endpoint)
                 results: list[dict] = []
                 for sc in scenarios:
@@ -352,7 +463,9 @@ class Handler(SimpleHTTPRequestHandler):
                     "id": run_id,
                     "agent_id": agent_id,
                     "score": round(passed / max(total, 1) * 100),
-                    "status": "passed" if passed / max(total, 1) >= 0.8 else "needs_review",
+                    "status": "passed"
+                    if passed / max(total, 1) >= 0.8
+                    else "needs_review",
                     "summary": f"Live test: {passed}/{total} scenarios passed",
                     "total_cost": 0.0,
                     "results": results,
@@ -360,13 +473,13 @@ class Handler(SimpleHTTPRequestHandler):
                     "passed_count": passed,
                     "failed_count": total - passed,
                 }
-                eval_report = _evaluate_with_configured_evaluators(live_run, payload.get("evaluators"))
-                issues = _record_issues(live_run, eval_report)
-                gate_result = EvalPolicy(payload.get("gates")).evaluate(live_run)
-                live_run["evaluation"] = {"eval_report": eval_report, "gate": gate_result.to_dict(), "issue_signatures": [issue["signature"] for issue in issues]}
-                save_run(run_id, agent_id, live_run["score"], live_run["status"],
-                         live_run["summary"], live_run, models.iso_now())
-                send_json(self, {"run": live_run, "gate": gate_result.to_dict(), "eval_report": eval_report}, 201)
+                result = RunPipeline().finalize_run(
+                    run_body=live_run,
+                    agent_id=agent_id,
+                    evaluators=payload.get("evaluators"),
+                    gates=payload.get("gates"),
+                )
+                send_json(self, result.response_body(), 201)
             elif path.startswith("/api/runs/") and path.endswith("/replay"):
                 run_id = path.split("/api/runs/")[1].split("/replay")[0]
                 run = get_run_by_id(run_id)
@@ -385,16 +498,25 @@ class Handler(SimpleHTTPRequestHandler):
                     name = r.get("scenario_name", "")
                     stype = r.get("scenario_type", "happy_path")
                     desc = r.get("scenario_name", "")
-                    scenario_defs.append(models.ScenarioDefinition(
-                        name=name,
-                        scenario_type=models.ScenarioType(stype),
-                        description=desc,
-                        user_prompt=name,
-                    ))
+                    scenario_defs.append(
+                        models.ScenarioDefinition(
+                            name=name,
+                            scenario_type=models.ScenarioType(stype),
+                            description=desc,
+                            user_prompt=name,
+                        ),
+                    )
                 engine = SimulationEngine(agent_config, scenario_defs, seed=42)
                 new_run = engine.run()
-                save_run(new_run.id, agent_id, new_run.score, new_run.status,
-                         new_run.summary, new_run.to_dict(), models.iso_now())
+                save_run(
+                    new_run.id,
+                    agent_id,
+                    new_run.score,
+                    new_run.status,
+                    new_run.summary,
+                    new_run.to_dict(),
+                    models.iso_now(),
+                )
                 diff = ReplayEngine.diff_runs(run["trace"], new_run.to_dict())
                 send_json(self, {"replay": new_run.to_dict(), "diff": diff}, 201)
             elif path == "/api/datasets/from-run":
@@ -423,7 +545,11 @@ class Handler(SimpleHTTPRequestHandler):
                     if result.get("score", 100) > min_score:
                         continue
                     scenario = scenario_from_result(result, run_id)
-                    tags = ["regression", result.get("scenario_type", "custom"), scenario.get("difficulty", "medium")]
+                    tags = [
+                        "regression",
+                        result.get("scenario_type", "custom"),
+                        scenario.get("difficulty", "medium"),
+                    ]
                     add_dataset_item(
                         "item-" + uuid.uuid4().hex[:10],
                         dataset_id,
@@ -434,7 +560,11 @@ class Handler(SimpleHTTPRequestHandler):
                         now,
                     )
                     added += 1
-                send_json(self, {"dataset": get_dataset(dataset_id), "added": added}, 201)
+                send_json(
+                    self,
+                    {"dataset": get_dataset(dataset_id), "added": added},
+                    201,
+                )
             elif path == "/api/datasets/from-issue":
                 payload = read_json(self)
                 issue = get_issue(payload.get("issue_id", ""))
@@ -450,7 +580,10 @@ class Handler(SimpleHTTPRequestHandler):
                 create_dataset(
                     dataset_id,
                     payload.get("name", f"Issue regression: {issue['title']}"),
-                    payload.get("description", "Regression dataset promoted from a grouped issue."),
+                    payload.get(
+                        "description",
+                        "Regression dataset promoted from a grouped issue.",
+                    ),
                     "issue_to_dataset",
                     {"issue_id": issue["id"], "source_run_id": run["id"]},
                     now,
@@ -465,22 +598,65 @@ class Handler(SimpleHTTPRequestHandler):
                     elif result.get("passed"):
                         continue
                     scenario = scenario_from_result(result, run["id"])
-                    tags = ["issue", issue["severity"], issue["id"], scenario.get("difficulty", "medium")]
-                    add_dataset_item("item-" + uuid.uuid4().hex[:10], dataset_id, scenario, run["id"], result.get("scenario_name", ""), tags, now)
+                    tags = _dataset_issue_tags(issue, scenario)
+                    add_dataset_item(
+                        "item-" + uuid.uuid4().hex[:10],
+                        dataset_id,
+                        scenario,
+                        run["id"],
+                        result.get("scenario_name", ""),
+                        tags,
+                        now,
+                    )
                     added += 1
                 if added == 0:
-                    failed_result = next((result for result in run["trace"].get("results", []) if not result.get("passed")), None)
+                    failed_result = next(
+                        (
+                            result
+                            for result in run["trace"].get("results", [])
+                            if not result.get("passed")
+                        ),
+                        None,
+                    )
                     if failed_result:
                         scenario = scenario_from_result(failed_result, run["id"])
-                        add_dataset_item("item-" + uuid.uuid4().hex[:10], dataset_id, scenario, run["id"], failed_result.get("scenario_name", ""), ["issue", issue["severity"], issue["id"]], now)
+                        tags = _dataset_issue_tags(issue, scenario)
+                        add_dataset_item(
+                            "item-" + uuid.uuid4().hex[:10],
+                            dataset_id,
+                            scenario,
+                            run["id"],
+                            failed_result.get("scenario_name", ""),
+                            tags,
+                            now,
+                        )
                         added = 1
-                send_json(self, {"dataset": get_dataset(dataset_id), "added": added}, 201)
+                send_json(
+                    self,
+                    {"dataset": get_dataset(dataset_id), "added": added},
+                    201,
+                )
             elif path == "/api/datasets/import":
                 payload = read_json(self)
-                pack = load_dataset_pack(payload["path"]) if payload.get("path") else payload.get("dataset", {})
-                dataset_id = payload.get("dataset_id") or pack.get("id") or "ds-" + uuid.uuid4().hex[:10]
+                pack = (
+                    load_dataset_pack(payload["path"])
+                    if payload.get("path")
+                    else payload.get("dataset", {})
+                )
+                dataset_id = (
+                    payload.get("dataset_id")
+                    or pack.get("id")
+                    or "ds-" + uuid.uuid4().hex[:10]
+                )
                 now = models.iso_now()
-                create_dataset(dataset_id, pack.get("name", "Imported dataset"), pack.get("description", ""), pack.get("source", "dataset_import"), pack.get("metadata", {}), now)
+                create_dataset(
+                    dataset_id,
+                    pack.get("name", "Imported dataset"),
+                    pack.get("description", ""),
+                    pack.get("source", "dataset_import"),
+                    pack.get("metadata", {}),
+                    now,
+                )
                 added = 0
                 for item in pack.get("items", []):
                     add_dataset_item(
@@ -493,16 +669,31 @@ class Handler(SimpleHTTPRequestHandler):
                         now,
                     )
                     added += 1
-                send_json(self, {"dataset": get_dataset(dataset_id), "added": added}, 201)
+                send_json(
+                    self,
+                    {"dataset": get_dataset(dataset_id), "added": added},
+                    201,
+                )
             elif path == "/api/eval-policies":
                 payload = read_json(self)
                 policy_id = payload.get("id") or "policy-" + uuid.uuid4().hex[:8]
-                upsert_eval_policy(policy_id, payload.get("name", "Release gate"), payload.get("gates", DEFAULT_GATES), models.iso_now())
+                upsert_eval_policy(
+                    policy_id,
+                    payload.get("name", "Release gate"),
+                    payload.get("gates", DEFAULT_GATES),
+                    models.iso_now(),
+                )
                 send_json(self, {"policy": get_eval_policy(policy_id)}, 201)
             elif path == "/api/evaluators":
                 payload = read_json(self)
                 evaluator_id = payload.get("id") or "eval-" + uuid.uuid4().hex[:8]
-                upsert_evaluator(evaluator_id, payload.get("name", "Custom evaluator"), payload.get("type", "regex"), payload.get("config", {}), models.iso_now())
+                upsert_evaluator(
+                    evaluator_id,
+                    payload.get("name", "Custom evaluator"),
+                    payload.get("type", "regex"),
+                    payload.get("config", {}),
+                    models.iso_now(),
+                )
                 send_json(self, {"evaluator": get_evaluator(evaluator_id)}, 201)
             elif path == "/api/experiments":
                 payload = read_json(self)
@@ -516,34 +707,78 @@ class Handler(SimpleHTTPRequestHandler):
                     if not agent_data:
                         send_json(self, {"error": f"Agent not found: {agent_id}"}, 404)
                         return
-                    agents.append({"id": agent_id, "config": models.AgentConfig.from_dict(agent_data["config"])})
+                    agents.append(
+                        {
+                            "id": agent_id,
+                            "config": models.AgentConfig.from_dict(
+                                agent_data["config"],
+                            ),
+                        },
+                    )
                 dataset_id = payload.get("dataset_id")
                 if dataset_id:
-                    dataset = get_dataset(dataset_id)
+                    scenarios, dataset = _load_dataset_scenarios(dataset_id)
                     if not dataset:
                         send_json(self, {"error": "Dataset not found"}, 404)
                         return
-                    scenarios = [scenario_dict_to_definition(item["scenario"]) for item in dataset["items"]]
                 else:
                     gen = ScenarioGenerator()
-                    scenarios = gen.generate_all(agent_type=payload.get("agent_type", "customer_support"), count=int(payload.get("scenario_count", 25)))
-                experiment = run_experiment_matrix(agents, scenarios, list_evaluators() or builtin_evaluators(), payload.get("gates"), int(payload.get("seed", 42)))
+                    scenarios = gen.generate_all(
+                        agent_type=payload.get("agent_type", "customer_support"),
+                        count=int(payload.get("scenario_count", 25)),
+                    )
+                experiment = run_experiment_matrix(
+                    agents,
+                    scenarios,
+                    list_evaluators() or builtin_evaluators(),
+                    payload.get("gates"),
+                    int(payload.get("seed", 42)),
+                )
                 for variant in experiment["variants"]:
                     run = variant["run"]
-                    run["experiment"] = {"variant_id": variant["variant_id"], "gate": variant["gate"], "eval_report": variant["eval_report"]}
-                    save_run(run["id"], variant["variant_id"], run["score"], run["status"], run["summary"], run, models.iso_now())
+                    run["experiment"] = {
+                        "variant_id": variant["variant_id"],
+                        "gate": variant["gate"],
+                        "eval_report": variant["eval_report"],
+                    }
+                    save_run(
+                        run["id"],
+                        variant["variant_id"],
+                        run["score"],
+                        run["status"],
+                        run["summary"],
+                        run,
+                        models.iso_now(),
+                    )
                 send_json(self, {"experiment": experiment}, 201)
             elif path == "/api/ingest/traces":
                 payload = read_json(self)
-                trace_payload = load_trace_payload(payload["path"]) if payload.get("path") else payload.get("trace", payload)
+                trace_payload = (
+                    load_trace_payload(payload["path"])
+                    if payload.get("path")
+                    else payload.get("trace", payload)
+                )
                 agent_id = payload.get("agent_id", "production-import")
-                run_body = normalize_payload(trace_payload, agent_id, payload.get("agent_name", "Production Agent"))
-                eval_report = _evaluate_with_configured_evaluators(run_body, payload.get("evaluators"))
-                issues = _record_issues(run_body, eval_report)
-                gate_result = EvalPolicy(payload.get("gates")).evaluate(run_body)
-                run_body["evaluation"] = {"eval_report": eval_report, "gate": gate_result.to_dict(), "issue_signatures": [issue["signature"] for issue in issues]}
-                save_run(run_body["id"], agent_id, run_body["score"], run_body["status"], run_body["summary"], run_body, models.iso_now())
-                send_json(self, {"run": run_body, "eval_report": eval_report, "issues": issues}, 201)
+                run_body = normalize_payload(
+                    trace_payload,
+                    agent_id,
+                    payload.get("agent_name", "Production Agent"),
+                )
+                result = RunPipeline().finalize_run(
+                    run_body=run_body,
+                    agent_id=agent_id,
+                    evaluators=payload.get("evaluators"),
+                    gates=payload.get("gates"),
+                )
+                send_json(
+                    self,
+                    {
+                        "run": result.run,
+                        "eval_report": result.eval_report,
+                        "issues": result.issues,
+                    },
+                    201,
+                )
             elif path.startswith("/api/runs/") and path.endswith("/evaluate"):
                 payload = read_json(self)
                 run_id = path.split("/api/runs/")[1].split("/evaluate")[0]
@@ -551,19 +786,43 @@ class Handler(SimpleHTTPRequestHandler):
                 if not run:
                     send_json(self, {"error": "Run not found"}, 404)
                     return
-                eval_report = _evaluate_with_configured_evaluators(run["trace"], payload.get("evaluators"))
-                issues = _record_issues(run["trace"], eval_report)
+                eval_report = evaluate_with_configured_evaluators(
+                    run["trace"],
+                    payload.get("evaluators"),
+                )
+                issues = record_issues(run["trace"], eval_report)
                 send_json(self, {"eval_report": eval_report, "issues": issues})
             elif path.startswith("/api/issues/") and path.endswith("/status"):
                 payload = read_json(self)
                 issue_id = path.split("/api/issues/")[1].split("/status")[0]
-                update_issue_status(issue_id, payload.get("status", "open"), models.iso_now())
+                update_issue_status(
+                    issue_id,
+                    payload.get("status", "open"),
+                    models.iso_now(),
+                )
                 send_json(self, {"issue": get_issue(issue_id)})
             elif path == "/api/annotations":
                 payload = read_json(self)
                 annotation_id = payload.get("id") or "ann-" + uuid.uuid4().hex[:10]
-                add_annotation(annotation_id, payload.get("target_type", "run"), payload.get("target_id", ""), payload.get("label", "reviewed"), payload.get("score"), payload.get("comment", ""), models.iso_now())
-                send_json(self, {"annotations": list_annotations(payload.get("target_type"), payload.get("target_id"))}, 201)
+                add_annotation(
+                    annotation_id,
+                    payload.get("target_type", "run"),
+                    payload.get("target_id", ""),
+                    payload.get("label", "reviewed"),
+                    payload.get("score"),
+                    payload.get("comment", ""),
+                    models.iso_now(),
+                )
+                send_json(
+                    self,
+                    {
+                        "annotations": list_annotations(
+                            payload.get("target_type"),
+                            payload.get("target_id"),
+                        ),
+                    },
+                    201,
+                )
             elif path.startswith("/api/runs/") and path.endswith("/gate"):
                 payload = read_json(self)
                 run_id = path.split("/api/runs/")[1].split("/gate")[0]
@@ -582,35 +841,34 @@ class Handler(SimpleHTTPRequestHandler):
                 gen = ScenarioGenerator()
                 if pack_path:
                     from .engine.scenario_loader import ScenarioLoader
+
                     custom = ScenarioLoader.load_custom_pack(pack_path)
                     all_scenarios: list = []
                     for agent_type, tmpl_list in custom.items():
                         for tmpl in tmpl_list:
-                            all_scenarios.append(models.ScenarioDefinition(
-                                name=tmpl.get("prompt", "")[:60].strip(),
-                                scenario_type=models.ScenarioType(tmpl.get("type", "happy_path")),
-                                description=tmpl.get("prompt", "")[:200],
-                                user_prompt=tmpl.get("prompt", ""),
-                                expected_tools=tmpl.get("expected_tools", []),
-                                blocked_tools=tmpl.get("blocked_tools", []),
-                                sensitive_data=tmpl.get("sensitive_data", False),
-                                difficulty=tmpl.get("difficulty", "medium"),
-                            ))
-                    send_json(self, {"scenarios": [s.to_dict() for s in all_scenarios], "count": len(all_scenarios)}, 201)
+                            all_scenarios.append(
+                                _scenario_from_template(tmpl, agent_type),
+                            )
+                    send_json(
+                        self,
+                        {
+                            "scenarios": [s.to_dict() for s in all_scenarios],
+                            "count": len(all_scenarios),
+                        },
+                        201,
+                    )
                 else:
                     all_scenarios: list = []
                     for tmpl in templates:
-                        all_scenarios.append(models.ScenarioDefinition(
-                            name=tmpl.get("prompt", "")[:60].strip(),
-                            scenario_type=models.ScenarioType(tmpl.get("type", "happy_path")),
-                            description=tmpl.get("prompt", "")[:200],
-                            user_prompt=tmpl.get("prompt", ""),
-                            expected_tools=tmpl.get("expected_tools", []),
-                            blocked_tools=tmpl.get("blocked_tools", []),
-                            sensitive_data=tmpl.get("sensitive_data", False),
-                            difficulty=tmpl.get("difficulty", "medium"),
-                        ))
-                    send_json(self, {"scenarios": [s.to_dict() for s in all_scenarios], "count": len(all_scenarios)}, 201)
+                        all_scenarios.append(_scenario_from_template(tmpl))
+                    send_json(
+                        self,
+                        {
+                            "scenarios": [s.to_dict() for s in all_scenarios],
+                            "count": len(all_scenarios),
+                        },
+                        201,
+                    )
             else:
                 send_json(self, {"error": "Not found"}, 404)
         except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as exc:

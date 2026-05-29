@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, ClassVar
+from typing import ClassVar
 from ..models import Guardrail, GuardrailSeverity, Violation
 from .g0dm0d3_defense import G0DM0D3Defense
 

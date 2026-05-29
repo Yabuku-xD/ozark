@@ -13,8 +13,6 @@ Covers:
   8. Response artifact detection
 """
 import re
-import unicodedata
-from typing import Optional
 
 from ..models import Violation, GuardrailSeverity
 

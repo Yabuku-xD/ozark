@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Callable
 from typing import Any
 
@@ -36,19 +37,32 @@ def evaluate_with_configured_evaluators(
     body: dict[str, Any],
     requested: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    evaluators = requested or db.list_evaluators() or builtin_evaluators()
+    evaluators = requested or _configured_evaluators() or builtin_evaluators()
     evaluator = EvaluatorRunner(evaluators)
-    evaluate = getattr(evaluator, "evaluate_" + "run")
-    return evaluate(body)
+    return evaluator.evaluate_run(body)
+
+
+def _configured_evaluators() -> list[dict[str, Any]]:
+    """Return persisted evaluators, falling back to builtins when the store is unavailable.
+
+    Lets the pipeline run (and be unit-tested) without a bootstrapped database —
+    a missing ``evaluators`` table is treated the same as "no custom evaluators
+    configured" rather than a fatal error.
+    """
+    try:
+        return db.list_evaluators()
+    except sqlite3.OperationalError:
+        # Store not bootstrapped (e.g. unit tests calling finalize_run directly);
+        # fall through to builtins so evaluation still works.
+        return builtin_evaluators()
 
 
 def record_issues(
     body: dict[str, Any], eval_report: dict[str, Any]
 ) -> list[dict[str, Any]]:
     issues = findings_to_issues(body, eval_report, db.get_issue_by_signature)
-    upsert = db.upsert_issue
     for issue in issues:
-        upsert(issue)
+        db.upsert_issue(issue)
     return issues
 
 
@@ -116,8 +130,7 @@ class RunPipeline:
                 "issue_signatures": [issue["signature"] for issue in issues],
             },
         }
-        persist = getattr(db, "save_" + "run")
-        persist(
+        db.save_run(
             finalized_body["id"],
             agent_id,
             finalized_body["score"],
@@ -140,5 +153,4 @@ class RunPipeline:
         results: list[models.ScenarioResult],
     ) -> None:
         report = build_coverage_report(agent_config, results)
-        persist_coverage = getattr(db, "save_" + "coverage")
-        persist_coverage(agent_id, report.to_dict(), self.now())
+        db.save_coverage(agent_id, report.to_dict(), self.now())

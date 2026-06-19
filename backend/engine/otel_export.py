@@ -39,7 +39,6 @@ def run_to_otel_spans(run: dict[str, Any]) -> list[dict[str, Any]]:
             "gen_ai.system": GENAI_SYSTEM,
             "gen_ai.operation.name": "agent.eval",
             "gen_ai.agent.name": run.get("agent_name", run.get("agent_id", "")),
-            "gen_ai.usage.input_tokens": int(run.get("total_cost", 0) * 1000),
             "ozark.score": run.get("score", 0),
             "ozark.status": run.get("status", ""),
             "ozark.scenario_count": run.get("scenario_count", 0),
@@ -114,14 +113,11 @@ def _event_attributes(event: dict[str, Any], result: dict[str, Any]) -> dict[str
     if event.get("kind") == "tool_call":
         attrs["gen_ai.tool.name"] = event.get("tool", "unknown")
         attrs["gen_ai.tool.call.id"] = event.get("call_id", "")
-        attrs["gen_ai.usage.input_tokens"] = len(str(event.get("args", {})))
     if event.get("kind") == "tool_result":
         attrs["gen_ai.tool.name"] = event.get("tool", "unknown")
         attrs["gen_ai.tool.result"] = str(event.get("result", ""))[:240]
     if event.get("latency_ms") is not None:
         attrs["gen_ai.usage.duration"] = event["latency_ms"]
-    if event.get("cost") is not None:
-        attrs["gen_ai.usage.output_tokens"] = int(event["cost"] * 1000)
     if event.get("content"):
         attrs["gen_ai.prompt"] = str(event["content"])[:240]
     return attrs

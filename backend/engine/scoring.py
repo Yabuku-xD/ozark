@@ -134,13 +134,14 @@ class ScoringEngine:
 
     def _score_cost(self, dim: DimensionScore, result: ScenarioResult):
         dim.max_score += 100
-        if result.total_cost < 0.01:
+        cost = result.total_cost
+        if cost is None or cost == 0 or cost < 0.01:
             dim.score += 100
-        elif result.total_cost < 0.05:
+        elif cost < 0.05:
             dim.score += 80
-        elif result.total_cost < 0.10:
+        elif cost < 0.10:
             dim.score += 60
-        elif result.total_cost < 0.50:
+        elif cost < 0.50:
             dim.score += 40
         else:
             dim.score += 20

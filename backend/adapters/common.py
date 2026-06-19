@@ -37,10 +37,11 @@ def adapter_result_from_response(scenario: Any, response: AdapterResponse) -> di
         "scenario_type": getattr(getattr(scenario, "scenario_type", None), "value", "happy_path"),
         "passed": not response.error,
         "score": 100 if not response.error else 0,
+        "score_method": "binary_error",
         "called_tools": tool_names_from_calls(response.tool_calls),
         "violations": [],
         "trace": response.tool_calls + [{"kind": "assistant", "content": response.content}],
         "latency_ms": response.latency_ms,
-        "total_cost": 0.0,
+        "total_cost": None,
         "failures": [response.error] if response.error else [],
     }

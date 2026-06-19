@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - run: npm install
       - name: ESLint
         run: npm run lint
       - name: Vitest
@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: python -m pip install -r requirements.txt
       - run: npm run build
       - name: Start Ozark

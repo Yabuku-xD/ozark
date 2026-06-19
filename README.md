@@ -11,7 +11,7 @@
 <p align="center">
   <a href="#quick-start"><img alt="Docs" src="https://img.shields.io/badge/docs-quick%20start-69707f?labelColor=555555&style=for-the-badge"></a>
   <a href="backend/scenarios"><img alt="Data" src="https://img.shields.io/badge/data-DOL%20%2B%20community-ffd400?labelColor=555555&style=for-the-badge"></a>
-  <a href="https://github.com/Yabuku-xD/ozark/releases"><img alt="Release" src="https://img.shields.io/github/v/release/Yabuku-xD/ozark?include_prereleases&label=release&labelColor=555555&color=d43d1a&style=for-the-badge"></a>
+  <a href="https://github.com/Yabuku-xD/ozark/releases"><img alt="Release" src="https://img.shields.io/badge/release-v0.2.0-d43d1a?labelColor=555555&style=for-the-badge"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-2f6f52?labelColor=555555&style=for-the-badge"></a>
   <img alt="Frontend" src="https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-1f5a99?labelColor=555555&style=for-the-badge">
   <img alt="Backend" src="https://img.shields.io/badge/backend-Python%203.12-2f6f52?labelColor=555555&style=for-the-badge">

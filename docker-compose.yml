@@ -1,0 +1,17 @@
+services:
+  ozark:
+    build: .
+    ports:
+      - "${OZARK_PORT:-8787}:8787"
+    volumes:
+      - ozark-data:/app/data
+    environment:
+      - PORT=8787
+      - OZARK_ALLOW_PRIVATE_ENDPOINTS=${OZARK_ALLOW_PRIVATE_ENDPOINTS:-0}
+      - OZARK_ALLOWED_ENDPOINT_HOSTS=${OZARK_ALLOWED_ENDPOINT_HOSTS:-}
+      - OZARK_ALLOWED_TRACE_ROOTS=${OZARK_ALLOWED_TRACE_ROOTS:-}
+      - OZARK_AGENT_PATH=${OZARK_AGENT_PATH:-}
+    restart: unless-stopped
+
+volumes:
+  ozark-data:

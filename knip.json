@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["frontend/src/main.jsx", "frontend/vite.config.js", "frontend/eslint.config.js"],
+  "entry": ["frontend/src/main.jsx", "frontend/src/dashboard.jsx", "frontend/vite.config.js", "frontend/eslint.config.js"],
   "project": ["frontend/src/**/*.{js,jsx}"],
   "workspaces": {
     "frontend": {

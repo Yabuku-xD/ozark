@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from . import models
 from .db import (
     add_annotation,
-    add_dataset_item,
+    add_dataset_items_batch,
     create_dataset,
     get_agent,
     get_coverage,
@@ -27,11 +27,13 @@ from .db import (
     list_issues,
     list_runs,
     save_run,
+    save_runs_batch,
     update_issue_status,
     upsert_agent,
     upsert_eval_policy,
     upsert_evaluator,
 )
+from .engine import jobs as jobs_mod
 from .engine.dataset_io import export_dataset, load_dataset_pack
 from .engine.datasets import scenario_dict_to_definition, scenario_from_result
 from .engine.eval_policy import DEFAULT_GATES, EvalPolicy
@@ -54,6 +56,10 @@ ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend" / "dist"
 AGENTS_FILE = ROOT / "backend" / "agents.json"
 LOGGER = logging.getLogger(__name__)
+
+# Cap request bodies at 10 MB to prevent memory exhaustion from huge
+# payloads. Trace ingestion of very large files should stream instead.
+MAX_REQUEST_BYTES = 10 * 1024 * 1024
 
 
 def _load_builtin_agents() -> list[dict]:
@@ -100,6 +106,7 @@ def _import_agent_from_path(file_path: str) -> tuple[str, str, str, dict]:
 
 def bootstrap() -> None:
     init_db()
+    jobs_mod.init_jobs()
     now = models.iso_now()
     for ba in BUILTIN_AGENTS:
         upsert_agent(ba["id"], ba["name"], ba["description"], ba["config"], now)
@@ -121,11 +128,18 @@ def bootstrap() -> None:
         except (FileNotFoundError, json.JSONDecodeError, OSError, ValueError) as exc:
             LOGGER.warning("Failed to import agent from %s: %s", agent_path, exc)
 
+    # Start the background job worker (registers run_pipeline handlers).
+    jobs_mod.start_worker()
+
 
 def read_json(handler) -> dict:
     length = int(handler.headers.get("Content-Length", "0"))
     if length == 0:
         return {}
+    if length > MAX_REQUEST_BYTES:
+        raise ValueError(
+            f"Request body too large ({length} > {MAX_REQUEST_BYTES} bytes)"
+        )
     return json.loads(handler.rfile.read(length).decode("utf-8"))
 
 
@@ -186,14 +200,24 @@ class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path):
         parsed = urlparse(path)
         clean = unquote(parsed.path)
-        if clean == "/" or clean == "":
-            clean = "/index.html"
 
         frontend_root = FRONTEND.resolve()
+
+        # Root serves the dashboard (landing page is only for Vite dev server).
+        if clean == "/" or clean == "":
+            return str(frontend_root / "dashboard.html")
+
         requested = (frontend_root / clean.lstrip("/")).resolve()
         if requested == frontend_root or frontend_root not in requested.parents:
             return str(frontend_root / "__not_found__")
-        return str(requested)
+
+        # Serve real files (assets, favicon, etc.)
+        if requested.is_file():
+            return str(requested)
+
+        # SPA fallback: all client-side routes (/, /runs, /jobs, …) serve
+        # dashboard.html so React Router can handle them.
+        return str(frontend_root / "dashboard.html")
 
     def log_message(self, format, *args):
         pass
@@ -211,12 +235,32 @@ class Handler(SimpleHTTPRequestHandler):
         params = parse_qs(parsed.query)
         try:
             if path == "/api/health":
-                send_json(self, {"ok": True, "name": "Ozark", "version": "2.1.0"})
+                send_json(
+                    self,
+                    {
+                        "ok": True,
+                        "name": "Ozark",
+                        "version": "2.2.0",
+                        "worker": {"active_jobs": jobs_mod.active_job_count()},
+                    },
+                )
+            elif path == "/api/jobs":
+                status = params.get("status", [None])[0]
+                limit = int(params.get("limit", ["50"])[0])
+                send_json(self, {"jobs": jobs_mod.list_jobs(status, limit)})
+            elif path.startswith("/api/jobs/"):
+                job_id = path.split("/api/jobs/")[1]
+                job = jobs_mod.get_job(job_id)
+                if not job:
+                    send_json(self, {"error": "Job not found"}, 404)
+                    return
+                status_code = 200 if job["status"] in {"succeeded", "failed"} else 202
+                send_json(self, {"job": job}, status_code)
             elif path == "/api/agents":
                 send_json(self, {"agents": list_agents()})
             elif path == "/api/scenarios/generate":
                 agent_type = params.get("agent_type", ["customer_support"])[0]
-                count = int(params.get("count", ["100"])[0])
+                count = max(1, min(int(params.get("count", ["100"])[0]), 50000))
                 gen = ScenarioGenerator()
                 scenarios = gen.generate_all(agent_type=agent_type, count=count)
                 send_json(
@@ -227,8 +271,9 @@ class Handler(SimpleHTTPRequestHandler):
                     },
                 )
             elif path == "/api/runs":
-                limit = int(params.get("limit", ["20"])[0])
-                send_json(self, {"runs": list_runs(limit)})
+                limit = max(1, min(int(params.get("limit", ["20"])[0]), 200))
+                before = params.get("before", [None])[0]
+                send_json(self, list_runs(limit=limit, before=before))
             elif path == "/api/datasets":
                 send_json(self, {"datasets": list_datasets()})
             elif path.startswith("/api/datasets/") and path.endswith("/export"):
@@ -316,9 +361,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if not run_a_id or not run_b_id:
                     send_json(self, {"error": "Need both a and b"}, 400)
                     return
-                runs = list_runs(100)
-                run_a = next((r for r in runs if r["id"] == run_a_id), None)
-                run_b = next((r for r in runs if r["id"] == run_b_id), None)
+                run_a = get_run_by_id(run_a_id)
+                run_b = get_run_by_id(run_b_id)
                 if not run_a or not run_b:
                     send_json(self, {"error": "Run not found"}, 404)
                     return
@@ -396,7 +440,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif path == "/api/runs":
                 payload = read_json(self)
                 agent_id = payload.get("agent_id", self._get_default_agent_id())
-                scenario_count = int(payload.get("scenario_count", 100))
+                scenario_count = max(1, min(int(payload.get("scenario_count", 100)), 50000))
                 agent_data = get_agent(agent_id)
                 if not agent_data:
                     send_json(self, {"error": "Agent not found"}, 404)
@@ -406,6 +450,33 @@ class Handler(SimpleHTTPRequestHandler):
                     "agent_type",
                     agent_data["config"].get("agent_type", "customer_support"),
                 )
+
+                # Async path: enqueue a job and return immediately.
+                if payload.get("async") or payload.get("async_run"):
+                    job_payload = {
+                        "agent_id": agent_id,
+                        "agent_type": agent_type,
+                        "scenario_count": scenario_count,
+                        "dataset_id": payload.get("dataset_id"),
+                        "seed": int(payload.get("seed", 42)),
+                        "evaluators": payload.get("evaluators"),
+                        "gates": payload.get("gates"),
+                        "max_workers": int(payload.get("max_workers", 4)),
+                    }
+                    job_id = jobs_mod.enqueue(
+                        "run_simulation", job_payload, total=scenario_count
+                    )
+                    send_json(
+                        self,
+                        {
+                            "job_id": job_id,
+                            "status": "pending",
+                            "poll": f"/api/jobs/{job_id}",
+                        },
+                        202,
+                    )
+                    return
+
                 dataset_id = payload.get("dataset_id")
                 if dataset_id:
                     scenarios, dataset = _load_dataset_scenarios(dataset_id)
@@ -440,6 +511,29 @@ class Handler(SimpleHTTPRequestHandler):
                         400,
                     )
                     return
+
+                # Async live runs: enqueue and return a job id.
+                if payload.get("async") or payload.get("async_run"):
+                    job_payload = {
+                        "agent_id": agent_id,
+                        "endpoint": endpoint,
+                        "scenario_count": int(payload.get("scenario_count", 10)),
+                        "agent_type": payload.get("agent_type", "customer_support"),
+                        "evaluators": payload.get("evaluators"),
+                        "gates": payload.get("gates"),
+                        "max_workers": int(payload.get("max_workers", 4)),
+                    }
+                    job_id = jobs_mod.enqueue(
+                        "run_live", job_payload,
+                        total=int(payload.get("scenario_count", 10)),
+                    )
+                    send_json(
+                        self,
+                        {"job_id": job_id, "status": "pending", "poll": f"/api/jobs/{job_id}"},
+                        202,
+                    )
+                    return
+
                 scenario_count = int(payload.get("scenario_count", 10))
                 agent_type = payload.get("agent_type", "customer_support")
                 gen = ScenarioGenerator()
@@ -451,10 +545,18 @@ class Handler(SimpleHTTPRequestHandler):
                 from .adapters.http_adapter import HttpAdapter
 
                 adapter = HttpAdapter(endpoint=endpoint)
+                max_workers = int(payload.get("max_workers", 4))
                 results: list[dict] = []
-                for sc in scenarios:
-                    result = adapter.run_scenario(sc)
-                    results.append(result)
+                if max_workers > 1 and len(scenarios) > 1:
+                    from concurrent.futures import ThreadPoolExecutor
+
+                    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                        for r in pool.map(adapter.run_scenario, scenarios):
+                            results.append(r)
+                else:
+                    for sc in scenarios:
+                        result = adapter.run_scenario(sc)
+                        results.append(result)
 
                 passed = sum(1 for r in results if r["passed"])
                 total = len(results)
@@ -538,7 +640,7 @@ class Handler(SimpleHTTPRequestHandler):
                 )
                 min_score = int(payload.get("max_score", 99))
                 only_failed = bool(payload.get("only_failed", True))
-                added = 0
+                items: list[dict] = []
                 for result in run["trace"].get("results", []):
                     if only_failed and result.get("passed"):
                         continue
@@ -550,16 +652,18 @@ class Handler(SimpleHTTPRequestHandler):
                         result.get("scenario_type", "custom"),
                         scenario.get("difficulty", "medium"),
                     ]
-                    add_dataset_item(
-                        "item-" + uuid.uuid4().hex[:10],
-                        dataset_id,
-                        scenario,
-                        run_id,
-                        result.get("scenario_name", ""),
-                        tags,
-                        now,
+                    items.append(
+                        {
+                            "id": "item-" + uuid.uuid4().hex[:10],
+                            "dataset_id": dataset_id,
+                            "scenario": scenario,
+                            "source_run_id": run_id,
+                            "source_result_name": result.get("scenario_name", ""),
+                            "tags": tags,
+                            "now": now,
+                        }
                     )
-                    added += 1
+                added = add_dataset_items_batch(items)
                 send_json(
                     self,
                     {"dataset": get_dataset(dataset_id), "added": added},
@@ -591,6 +695,7 @@ class Handler(SimpleHTTPRequestHandler):
                 added = 0
                 finding = issue.get("metadata", {}).get("last_finding", {})
                 target_scenario = finding.get("metadata", {}).get("scenario_name", "")
+                items: list[dict] = []
                 for result in run["trace"].get("results", []):
                     if target_scenario:
                         if result.get("scenario_name") != target_scenario:
@@ -599,17 +704,18 @@ class Handler(SimpleHTTPRequestHandler):
                         continue
                     scenario = scenario_from_result(result, run["id"])
                     tags = _dataset_issue_tags(issue, scenario)
-                    add_dataset_item(
-                        "item-" + uuid.uuid4().hex[:10],
-                        dataset_id,
-                        scenario,
-                        run["id"],
-                        result.get("scenario_name", ""),
-                        tags,
-                        now,
+                    items.append(
+                        {
+                            "id": "item-" + uuid.uuid4().hex[:10],
+                            "dataset_id": dataset_id,
+                            "scenario": scenario,
+                            "source_run_id": run["id"],
+                            "source_result_name": result.get("scenario_name", ""),
+                            "tags": tags,
+                            "now": now,
+                        }
                     )
-                    added += 1
-                if added == 0:
+                if not items:
                     failed_result = next(
                         (
                             result
@@ -621,16 +727,18 @@ class Handler(SimpleHTTPRequestHandler):
                     if failed_result:
                         scenario = scenario_from_result(failed_result, run["id"])
                         tags = _dataset_issue_tags(issue, scenario)
-                        add_dataset_item(
-                            "item-" + uuid.uuid4().hex[:10],
-                            dataset_id,
-                            scenario,
-                            run["id"],
-                            failed_result.get("scenario_name", ""),
-                            tags,
-                            now,
+                        items.append(
+                            {
+                                "id": "item-" + uuid.uuid4().hex[:10],
+                                "dataset_id": dataset_id,
+                                "scenario": scenario,
+                                "source_run_id": run["id"],
+                                "source_result_name": failed_result.get("scenario_name", ""),
+                                "tags": tags,
+                                "now": now,
+                            }
                         )
-                        added = 1
+                added = add_dataset_items_batch(items)
                 send_json(
                     self,
                     {"dataset": get_dataset(dataset_id), "added": added},
@@ -658,17 +766,20 @@ class Handler(SimpleHTTPRequestHandler):
                     now,
                 )
                 added = 0
+                items: list[dict] = []
                 for item in pack.get("items", []):
-                    add_dataset_item(
-                        "item-" + uuid.uuid4().hex[:10],
-                        dataset_id,
-                        item["scenario"],
-                        item.get("source_run_id", ""),
-                        item.get("source_result_name", ""),
-                        item.get("tags", ["imported"]),
-                        now,
+                    items.append(
+                        {
+                            "id": "item-" + uuid.uuid4().hex[:10],
+                            "dataset_id": dataset_id,
+                            "scenario": item["scenario"],
+                            "source_run_id": item.get("source_run_id", ""),
+                            "source_result_name": item.get("source_result_name", ""),
+                            "tags": item.get("tags", ["imported"]),
+                            "now": now,
+                        }
                     )
-                    added += 1
+                added = add_dataset_items_batch(items)
                 send_json(
                     self,
                     {"dataset": get_dataset(dataset_id), "added": added},
@@ -741,15 +852,21 @@ class Handler(SimpleHTTPRequestHandler):
                         "gate": variant["gate"],
                         "eval_report": variant["eval_report"],
                     }
-                    save_run(
-                        run["id"],
-                        variant["variant_id"],
-                        run["score"],
-                        run["status"],
-                        run["summary"],
-                        run,
-                        models.iso_now(),
-                    )
+                now = models.iso_now()
+                save_runs_batch(
+                    [
+                        {
+                            "id": variant["run"]["id"],
+                            "agent_id": variant["variant_id"],
+                            "score": variant["run"]["score"],
+                            "status": variant["run"]["status"],
+                            "summary": variant["run"]["summary"],
+                            "trace": variant["run"],
+                            "now": now,
+                        }
+                        for variant in experiment["variants"]
+                    ]
+                )
                 send_json(self, {"experiment": experiment}, 201)
             elif path == "/api/ingest/traces":
                 payload = read_json(self)

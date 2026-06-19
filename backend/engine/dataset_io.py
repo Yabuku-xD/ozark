@@ -3,7 +3,6 @@ from typing import Any
 
 from ..security import validate_trace_path
 
-
 SCHEMA_VERSION = "ozark.dataset.v1"
 
 

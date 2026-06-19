@@ -1,20 +1,35 @@
+import hashlib
 import random
 import time
 import uuid
+from collections.abc import Callable
+
 from ..models import (
     AgentConfig,
     ScenarioDefinition,
-    SimulationRun,
     ScenarioResult,
+    SimulationRun,
     TraceEvent,
     Violation,
     iso_now,
 )
-from .tool_simulator import ToolSimulator
-from .guardrails import GuardrailEngine
-from .tracing import TraceRecorder
 from .coverage import build_risk_summary
+from .guardrails import GuardrailEngine
 from .scoring import ScoringEngine
+from .tool_simulator import ToolSimulator
+from .tracing import TraceRecorder
+
+
+def stable_hash_int(value: str, modulus: int = 2**31 - 1) -> int:
+    """Deterministic 31-bit positive int from a string.
+
+    ``hash(str)`` is randomised per interpreter run unless
+    ``PYTHONHASHSEED`` is pinned, which breaks reproducibility of
+    seeded simulations across server restarts.  SHA-256 is stable for
+    all time and processes.
+    """
+    digest = hashlib.sha256(value.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") % modulus
 
 
 class SimulationEngine:
@@ -30,20 +45,47 @@ class SimulationEngine:
         self.rng = random.Random(seed)
         self.scorer = ScoringEngine()
 
-    def run(self) -> SimulationRun:
-        results: list[ScenarioResult] = []
-        total_cost = 0.0
-        total_latency = 0
+    def run(
+        self,
+        *,
+        max_workers: int | None = None,
+        progress_fn: "Callable[[int, int], None] | None" = None,
+    ) -> SimulationRun:
+        """Execute all scenarios.
 
-        for scenario in self.scenarios:
-            result = self._run_scenario(scenario)
-            results.append(result)
-            total_cost += result.total_cost
-            total_latency += result.latency_ms
+        ``max_workers`` parallelises scenario execution across a thread
+        pool (each scenario is CPU-light with no blocking I/O now that
+        ``ToolSimulator`` no longer sleeps).  ``progress_fn(done, total)``
+        is invoked after each scenario so callers (e.g. the job queue)
+        can report progress to clients.
+        """
+        total = len(self.scenarios)
+        results: list[ScenarioResult | None] = [None] * total
 
-        passed = sum(1 for r in results if r.passed)
+        if max_workers and max_workers > 1 and total > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {
+                    pool.submit(self._run_scenario, sc): i
+                    for i, sc in enumerate(self.scenarios)
+                }
+                for n, future in enumerate(futures, start=1):
+                    idx = futures[future]
+                    results[idx] = future.result()
+                    if progress_fn:
+                        progress_fn(n, total)
+        else:
+            for i, scenario in enumerate(self.scenarios):
+                results[i] = self._run_scenario(scenario)
+                if progress_fn:
+                    progress_fn(i + 1, total)
+
+        results_typed: list[ScenarioResult] = [r for r in results if r is not None]
+
+        passed = sum(1 for r in results_typed if r.passed)
         overall, confidence, dim_scores, recommendations = self.scorer.score_run(
-            results
+            results_typed
         )
 
         status = (
@@ -58,22 +100,22 @@ class SimulationEngine:
             agent_name=self.agent.name,
             score=overall,
             status=status,
-            summary=f"{passed}/{len(results)} scenarios passed with {overall}% confidence.",
+            summary=f"{passed}/{len(results_typed)} scenarios passed with {overall}% confidence.",
             confidence=confidence,
-            scenario_count=len(results),
+            scenario_count=len(results_typed),
             passed_count=passed,
-            failed_count=len(results) - passed,
-            total_cost=round(total_cost, 4),
-            total_latency_ms=total_latency,
-            results=results,
+            failed_count=len(results_typed) - passed,
+            total_cost=round(sum(r.total_cost for r in results_typed), 4),
+            total_latency_ms=sum(r.latency_ms for r in results_typed),
+            results=results_typed,
             dimension_scores=dim_scores,
             recommendations=recommendations,
-            risk_summary=build_risk_summary(results),
+            risk_summary=build_risk_summary(results_typed),
             created_at=iso_now(),
         )
 
     def _run_scenario(self, scenario: ScenarioDefinition) -> ScenarioResult:
-        scenario_seed = self.seed + hash(scenario.name) % 10000
+        scenario_seed = self.seed + stable_hash_int(scenario.name)
         rng = random.Random(scenario_seed)
         tool_sim = ToolSimulator(
             seed=scenario_seed, inject_faults=scenario.injected_faults
@@ -438,7 +480,7 @@ class SimulationEngine:
     def _estimate_cost(self, tool_name: str, result: dict) -> float:
         if isinstance(result, dict) and result.get("error"):
             return 0.001
-        return round(random.Random(self.seed + hash(tool_name)).uniform(0.001, 0.02), 4)
+        return round(random.Random(self.seed + stable_hash_int(tool_name)).uniform(0.001, 0.02), 4)
 
     def _evaluate(
         self,

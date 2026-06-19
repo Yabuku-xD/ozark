@@ -1,6 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from .coverage import (
+    critical_violation_count,
+    high_risk_failure_count,
+)
+
 DEFAULT_GATES = {
     "min_score": 80,
     "min_confidence": 0.80,
@@ -76,28 +81,3 @@ class EvalPolicy:
             )
 
         return GateResult(passed=not failures, failures=failures, gates=self.gates)
-
-
-def high_risk_failure_count(
-    run: dict[str, Any], risk_summary: dict[str, Any] | None = None
-) -> int:
-    summary = risk_summary or {}
-    failures_by_level = summary.get("failures_by_level") or {}
-    if failures_by_level:
-        return int(failures_by_level.get("high", 0)) + int(
-            failures_by_level.get("critical", 0)
-        )
-    return sum(
-        1
-        for result in run.get("results", [])
-        if not result.get("passed") and result.get("risk_level") in {"high", "critical"}
-    )
-
-
-def critical_violation_count(run: dict[str, Any]) -> int:
-    count = 0
-    for result in run.get("results", []):
-        for violation in result.get("violations", []):
-            if violation.get("severity") == "block":
-                count += 1
-    return count

@@ -1,7 +1,7 @@
 import random
 import threading
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 class ToolSimulator:
@@ -81,7 +81,9 @@ class ToolSimulator:
             call_count = self.call_count[tool_name]
 
         if "latency_fault" in self.inject_faults and self.rng.random() < 0.3:
-            threading.Event().wait(self.rng.uniform(0.5, 3.0))
+            # Simulated latency fault — no real blocking sleep.  The
+            # inflated latency is recorded by the caller, not waited on.
+            pass
         if "timeout" in self.inject_faults and self.rng.random() < 0.15:
             return {"error": "timeout", "message": "Request timed out after 30s"}
         if "auth_error" in self.inject_faults and self.rng.random() < 0.1:
@@ -120,7 +122,7 @@ class ToolSimulator:
                 "user_status", self.rng.choice(["active", "inactive", "suspended"])
             ),
             "created_at": (
-                datetime.now(timezone.utc) - timedelta(days=self.rng.randint(1, 730))
+                datetime.now(UTC) - timedelta(days=self.rng.randint(1, 730))
             ).isoformat(),
         }
 
@@ -148,7 +150,7 @@ class ToolSimulator:
             "total": round(self.rng.uniform(5.0, 500.0), 2),
             "items": self.rng.randint(1, 10),
             "created_at": (
-                datetime.now(timezone.utc) - timedelta(days=self.rng.randint(0, 30))
+                datetime.now(UTC) - timedelta(days=self.rng.randint(0, 30))
             ).isoformat(),
         }
 
@@ -390,7 +392,7 @@ class ToolSimulator:
         return {
             "meeting_id": f"MTG-{uuid.uuid4().hex[:8]}",
             "scheduled": True,
-            "time": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+            "time": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
         }
 
     def _create_invoice(self, name: str, args: dict, ctx: dict | None) -> dict:
@@ -456,7 +458,7 @@ class ToolSimulator:
             "proposal_id": f"PROP-{uuid.uuid4().hex[:8]}",
             "sent": True,
             "valid_until": (
-                datetime.now(timezone.utc) + timedelta(days=30)
+                datetime.now(UTC) + timedelta(days=30)
             ).isoformat(),
         }
 
@@ -499,7 +501,7 @@ class ToolSimulator:
             "framework": args.get("framework", "SOC2"),
             "violations": violations,
             "last_audit": (
-                datetime.now(timezone.utc) - timedelta(days=self.rng.randint(0, 180))
+                datetime.now(UTC) - timedelta(days=self.rng.randint(0, 180))
             ).isoformat(),
         }
 

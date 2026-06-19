@@ -2,6 +2,7 @@
 import argparse
 import json
 import sys
+import time
 import urllib.request
 
 
@@ -14,6 +15,8 @@ def write_json(value: object) -> None:
     write_output(json.dumps(value, indent=2))
 
 BASE_URL = "http://127.0.0.1:8787"
+# Polling interval (seconds) when following async jobs.
+JOB_POLL_INTERVAL = 1.0
 
 
 def request(method: str, path: str, payload: dict | None = None) -> dict:
@@ -29,17 +32,60 @@ def request(method: str, path: str, payload: dict | None = None) -> dict:
         return json.loads(resp.read().decode())
 
 
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    url = BASE_URL + "/"
+    if args.no_browser:
+        write_output(url)
+        return 0
+    write_output(f"Opening Ozark dashboard at {url}")
+    try:
+        import webbrowser
+
+        webbrowser.open(url)
+    except Exception as exc:
+        write_output(f"Could not open browser: {exc}. Visit {url}")
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     payload = {"agent_id": args.agent, "scenario_count": args.count}
     if args.dataset:
         payload["dataset_id"] = args.dataset
     if args.gates:
         payload["gates"] = json.loads(args.gates)
+    if args.async_run:
+        payload["async"] = True
+        body = request("POST", "/api/runs", payload)
+        # Async path: server returns 202 + job_id; poll to completion.
+        run_id, run_score, run_status, gate = _follow_job(body["job_id"])
+        write_json({"run_id": run_id, "score": run_score, "status": run_status, "gate": gate})
+        return 0 if gate.get("passed") else 2
+
     body = request("POST", "/api/runs", payload)
     run = body["run"]
     gate = body.get("gate", {"passed": True, "failures": []})
     write_json({"run_id": run["id"], "score": run["score"], "status": run["status"], "gate": gate})
     return 0 if gate.get("passed") else 2
+
+
+def _follow_job(job_id: str) -> tuple:
+    """Poll a job until it terminates. Returns (run_id, score, status, gate)."""
+    while True:
+        body = request("GET", f"/api/jobs/{job_id}")
+        job = body["job"]
+        status = job["status"]
+        if status == "succeeded":
+            result = job["result"] or {}
+            run = result.get("run", {})
+            gate = result.get("gate", {"passed": True, "failures": []})
+            return run.get("id", ""), run.get("score", 0), run.get("status", ""), gate
+        if status == "failed":
+            raise RuntimeError(f"Job {job_id} failed: {job.get('error')}")
+        # pending / running — print progress and keep waiting.
+        progress = job.get("progress", 0)
+        total = job.get("total", 0)
+        write_output(f"... {status}: {progress}/{total} scenarios")
+        time.sleep(JOB_POLL_INTERVAL)
 
 
 def cmd_promote(args: argparse.Namespace) -> int:
@@ -71,7 +117,32 @@ def cmd_otel(args: argparse.Namespace) -> int:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    body = request("POST", f"/api/runs/{args.run}/evaluate", {})
+    payload = {}
+    if args.evaluator_id:
+        payload["evaluators"] = [{"id": args.evaluator_id}]
+    body = request("POST", f"/api/runs/{args.run}/evaluate", payload)
+    write_json(body)
+    return 0 if body["eval_report"].get("passed") else 2
+
+
+def cmd_rubric_eval(args: argparse.Namespace) -> int:
+    """Register an LLM-as-judge evaluator and run it against a saved run."""
+    evaluator_id = "rubric-" + args.name.lower().replace(" ", "-")[:20]
+    request("POST", "/api/evaluators", {
+        "id": evaluator_id,
+        "name": args.name,
+        "type": "llm_judge",
+        "config": {
+            "rubric": args.rubric,
+            "prompt": args.prompt,
+            "target": args.target,
+            "threshold": args.threshold,
+            "severity": args.severity,
+        },
+    })
+    body = request("POST", f"/api/runs/{args.run}/evaluate", {
+        "evaluators": [{"id": evaluator_id}],
+    })
     write_json(body)
     return 0 if body["eval_report"].get("passed") else 2
 
@@ -95,6 +166,24 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         "eval_passed": body.get("eval_report", {}).get("passed"),
     })
     return 0 if body.get("eval_report", {}).get("passed") else 2
+
+
+def cmd_job(args: argparse.Namespace) -> int:
+    body = request("GET", f"/api/jobs/{args.id}")
+    job = body["job"]
+    write_json({
+        "job_id": job["id"],
+        "kind": job["kind"],
+        "status": job["status"],
+        "progress": job["progress"],
+        "total": job["total"],
+        "error": job.get("error"),
+    })
+    if job["status"] == "failed":
+        return 2
+    if job["status"] == "succeeded":
+        return 0
+    return 0
 
 
 def cmd_dataset_export(args: argparse.Namespace) -> int:
@@ -140,7 +229,13 @@ def main() -> int:
     run.add_argument("--count", type=int, default=100)
     run.add_argument("--dataset")
     run.add_argument("--gates", help="JSON gate overrides")
+    run.add_argument("--async", dest="async_run", action="store_true",
+                     help="Run asynchronously and poll the job queue")
     run.set_defaults(func=cmd_run)
+
+    job_status = sub.add_parser("job", help="Show job status")
+    job_status.add_argument("--id", required=True)
+    job_status.set_defaults(func=cmd_job)
 
     promote = sub.add_parser("promote", help="Promote failed run results to a regression dataset")
     promote.add_argument("--run", required=True)
@@ -161,7 +256,18 @@ def main() -> int:
 
     evaluate = sub.add_parser("evaluate", help="Run configured evaluators against a saved run")
     evaluate.add_argument("--run", required=True)
+    evaluate.add_argument("--evaluator-id", help="Only run a specific evaluator by id")
     evaluate.set_defaults(func=cmd_evaluate)
+
+    rubric_eval = sub.add_parser("rubric-eval", help="Run an LLM-as-judge rubric against a saved run")
+    rubric_eval.add_argument("--run", required=True)
+    rubric_eval.add_argument("--name", required=True, help="Evaluator name")
+    rubric_eval.add_argument("--rubric", required=True, help="Rubric/criteria text")
+    rubric_eval.add_argument("--prompt", default="Score this response against the rubric.", help="Judge prompt")
+    rubric_eval.add_argument("--target", default="assistant_output", choices=["assistant_output", "full_trace", "user_input"])
+    rubric_eval.add_argument("--threshold", type=float, default=0.7)
+    rubric_eval.add_argument("--severity", default="medium", choices=["low", "medium", "high", "critical"])
+    rubric_eval.set_defaults(func=cmd_rubric_eval)
 
     issues = sub.add_parser("issues", help="List grouped evaluator issues")
     issues.add_argument("--status")
@@ -177,6 +283,10 @@ def main() -> int:
     report.add_argument("--run", required=True)
     report.add_argument("--format", choices=["json", "md"], default="json")
     report.set_defaults(func=cmd_report)
+
+    dashboard = sub.add_parser("dashboard", help="Open the local web dashboard")
+    dashboard.add_argument("--no-browser", action="store_true", help="Print URL instead of opening browser")
+    dashboard.set_defaults(func=cmd_dashboard)
 
     experiment = sub.add_parser("experiment", help="Compare agent variants on the same eval set")
     experiment.add_argument("--agents", required=True, help="Comma-separated agent IDs; first is baseline")

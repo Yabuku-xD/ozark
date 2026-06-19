@@ -3,8 +3,8 @@ import uuid
 from typing import Any
 
 from .. import models
-from ..security import validate_trace_path
 from ..engine.evaluators import EvaluatorRunner
+from ..security import validate_trace_path
 
 
 def load_trace_payload(path: str) -> dict[str, Any]:

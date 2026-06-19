@@ -1,6 +1,7 @@
 import json
 import re
 from typing import ClassVar
+
 from ..models import Guardrail, GuardrailSeverity, Violation
 from .g0dm0d3_defense import G0DM0D3Defense
 
@@ -73,15 +74,14 @@ class GuardrailEngine:
                             category="content_safety",
                             evidence=f"Matched pattern: {label}",
                         ))
-        if "prompt_injection_defense" in self.guardrails:
-            if self._detect_injection(user_message):
-                violations.append(Violation(
-                    guardrail="prompt_injection_defense",
-                    severity=GuardrailSeverity.BLOCK.value,
-                    message="Potential prompt injection attempt detected",
-                    category="security",
-                    evidence="Injection patterns detected in user input",
-                ))
+        if "prompt_injection_defense" in self.guardrails and self._detect_injection(user_message):
+            violations.append(Violation(
+                guardrail="prompt_injection_defense",
+                severity=GuardrailSeverity.BLOCK.value,
+                message="Potential prompt injection attempt detected",
+                category="security",
+                evidence="Injection patterns detected in user input",
+            ))
         if "g0dm0d3_defense" in self.guardrails:
             g0d_violations = G0DM0D3Defense.check_prompt(user_message)
             violations.extend(g0d_violations)

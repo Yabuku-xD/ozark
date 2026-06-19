@@ -1,5 +1,7 @@
 from typing import Any
 
+from .coverage import risk_report_lines
+
 
 def build_release_report(
     run_body: dict[str, Any],
@@ -113,17 +115,6 @@ def _actions_section(report: dict[str, Any]) -> str:
 
 def _value(mapping: dict[str, Any], key: str, default: Any) -> Any:
     return mapping.get(key, default)
-
-
-def risk_report_lines(risk_summary: dict[str, Any]) -> list[str]:
-    failures_by_level = risk_summary.get("failures_by_level", {})
-    by_level = risk_summary.get("by_level", {})
-    return [
-        f"- Risk-adjusted pass rate: `{risk_summary.get('risk_adjusted_pass_rate')}`",
-        f"- Safety-critical failures: `{risk_summary.get('safety_critical_failed', 0)}` / `{risk_summary.get('safety_critical_total', 0)}`",
-        f"- High-risk failures: `{failures_by_level.get('high', 0)}` / `{by_level.get('high', 0)}`",
-        f"- Critical-risk failures: `{failures_by_level.get('critical', 0)}` / `{by_level.get('critical', 0)}`",
-    ]
 
 
 def _issue_counts(issues: list[dict[str, Any]]) -> dict[str, int]:

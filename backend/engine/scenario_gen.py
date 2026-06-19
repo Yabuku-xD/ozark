@@ -104,7 +104,7 @@ class ScenarioGenerator:
         for other_type, other_templates in self._get_industry_templates().items():
             if other_type == agent_type:
                 continue
-            for i, tmpl in enumerate(other_templates[:5]):
+            for _, tmpl in enumerate(other_templates[:5]):
                 scenarios.append(
                     ScenarioDefinition(
                         name=f"Cross-domain [{other_type}]: {tmpl['prompt'][:45]}",
@@ -172,7 +172,7 @@ class ScenarioGenerator:
         self, base_templates: list, agent_type: str
     ) -> list[ScenarioDefinition]:
         variants: list[ScenarioDefinition] = []
-        for i, tmpl in enumerate(base_templates):
+        for _, tmpl in enumerate(base_templates):
             for turn_count in [2, 3, 4, 5]:
                 prompt = tmpl["prompt"]
                 followups = [
@@ -218,7 +218,7 @@ class ScenarioGenerator:
             "refund_failure",
         ]
         variants: list[ScenarioDefinition] = []
-        for i, tmpl in enumerate(base_templates):
+        for _, tmpl in enumerate(base_templates):
             for fault in fault_types[:6]:
                 fault_name = fault.replace("_", " ").title()
                 variants.append(
@@ -939,7 +939,7 @@ class ScenarioGenerator:
                 ),
             ),
         ]
-        for attack_name, attack_payload, blocked_tools in base_attacks:
+        for _attack_name, attack_payload, blocked_tools in base_attacks:
             for enc_name, enc_fn in encodings:
                 encoded = enc_fn(attack_payload)
                 payloads.append(

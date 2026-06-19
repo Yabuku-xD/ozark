@@ -1,3 +1,4 @@
+import backend.engine.run_pipeline as run_pipeline
 from backend.engine.dataset_io import export_dataset
 from backend.engine.datasets import scenario_dict_to_definition, scenario_from_result
 from backend.engine.eval_policy import EvalPolicy
@@ -6,7 +7,6 @@ from backend.engine.ingest import normalize_payload
 from backend.engine.issues import findings_to_issues
 from backend.engine.reports import build_release_report
 from backend.engine.run_pipeline import RunPipeline
-import backend.engine.run_pipeline as run_pipeline
 
 
 def test_evaluators_detect_secret_output():
@@ -186,11 +186,13 @@ def test_run_pipeline_finalizes_evaluation_gate_and_persistence(monkeypatch):
     def fake_save_run(*args):
         saved_runs.append(args)
 
-    def fake_upsert_issue(issue):
-        saved_issues.append(issue)
+    def fake_upsert_issue(issues):
+        # upsert_issues_batch receives a list; record it for assertion.
+        saved_issues.extend(issues)
 
     monkeypatch.setattr(run_pipeline.db, "save_run", fake_save_run)
     monkeypatch.setattr(run_pipeline.db, "upsert_issue", fake_upsert_issue)
+    monkeypatch.setattr(run_pipeline.db, "upsert_issues_batch", fake_upsert_issue)
     monkeypatch.setattr(
         run_pipeline.db, "get_issue_by_signature", lambda signature: None
     )

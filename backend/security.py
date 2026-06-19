@@ -5,10 +5,20 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_ALLOWED_TRACE_ROOTS = [ROOT, Path.cwd(), Path('/tmp')]
+# Default to the project root only.  ``/tmp`` and ``cwd`` were previously
+# allowed, which let an attacker ingest arbitrary files under those
+# trees (which are often writable by many users on shared hosts).
+# Operators can broaden this with OZARK_ALLOWED_TRACE_ROOTS if needed.
+DEFAULT_ALLOWED_TRACE_ROOTS = [ROOT]
 
 
 def validate_live_endpoint(endpoint: str) -> None:
+    """Validate a live-agent endpoint against SSRF rules.
+
+    Private/loopback addresses are **blocked by default**.  Operators
+    who genuinely need to point Ozark at an internal agent can opt in
+    by setting ``OZARK_ALLOW_PRIVATE_ENDPOINTS=1``.
+    """
     parsed = urlparse(endpoint)
     if parsed.scheme not in {"http", "https"}:
         raise ValueError("Live endpoint must use http or https")
@@ -19,7 +29,7 @@ def validate_live_endpoint(endpoint: str) -> None:
     if allowlist and parsed.hostname not in allowlist:
         raise ValueError(f"Endpoint host is not allowlisted: {parsed.hostname}")
 
-    if os.environ.get("OZARK_ALLOW_PRIVATE_ENDPOINTS", "1") == "1":
+    if os.environ.get("OZARK_ALLOW_PRIVATE_ENDPOINTS", "0") == "1":
         return
 
     for ip in _resolve_host_ips(parsed.hostname, parsed.port or 80):

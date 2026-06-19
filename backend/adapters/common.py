@@ -33,13 +33,13 @@ def tool_names_from_calls(tool_calls: list[dict[str, Any]]) -> list[str]:
 
 def adapter_result_from_response(scenario: Any, response: AdapterResponse) -> dict[str, Any]:
     return {
-        "scenario_name": scenario.name,
-        "scenario_type": scenario.scenario_type.value,
+        "scenario_name": getattr(scenario, "name", "scenario"),
+        "scenario_type": getattr(getattr(scenario, "scenario_type", None), "value", "happy_path"),
         "passed": not response.error,
         "score": 100 if not response.error else 0,
         "called_tools": tool_names_from_calls(response.tool_calls),
         "violations": [],
-        "trace": [],
+        "trace": response.tool_calls + [{"kind": "assistant", "content": response.content}],
         "latency_ms": response.latency_ms,
         "total_cost": 0.0,
         "failures": [response.error] if response.error else [],

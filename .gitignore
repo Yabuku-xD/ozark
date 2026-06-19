@@ -7,6 +7,8 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.egg-info/
+.venv/
+venv/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -20,14 +22,6 @@ data/
 *.sqlite3-wal
 *.sqlite3-shm
 *.db
-
-# Swift / Xcode
-.build/
-runner/.build/
-DerivedData/
-*.xcuserdata/
-*.xcuserstate
-.swiftpm/
 
 # Build output
 frontend/dist/
@@ -57,4 +51,3 @@ yarn-error.log*
 
 # Local pi-lens reports
 .pi-lens/
-

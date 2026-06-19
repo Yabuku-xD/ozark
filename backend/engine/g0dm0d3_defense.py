@@ -14,8 +14,7 @@ Covers:
 """
 import re
 
-from ..models import Violation, GuardrailSeverity
-
+from ..models import GuardrailSeverity, Violation
 
 # ═══════════════════════════════════════════════════════════════════════════
 # LAYER 1 — GODMODE SYSTEM PROMPT SIGNATURES

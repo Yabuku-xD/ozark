@@ -1,0 +1,42 @@
+[project]
+name = "ozark"
+version = "0.2.0"
+description = "Local-first AI agent simulation lab with runtime guardrails, scenario testing, and release confidence scoring."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Shyamalan Kannan" }]
+requires-python = ">=3.12"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --tb=short"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["frontend", "node_modules", ".pi-lens"]
+
+[tool.ruff.lint]
+# E/F = pyflakes + pycodestyle, I = import sorting, W = warnings,
+# UP = pyupgrade, B = bugbear, SIM = simplifications.
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+# The codebase has inline pi-lens/tree-sitter suppression comments and
+# some deliberate patterns; keep noise low while we harden.
+ignore = [
+    "E501",   # line length handled by formatter
+    "B008",   # function calls in defaults (used for dataclass field defaults)
+    "SIM108", # ternary vs if/else — readability preference
+    "UP042",  # `class X(str, Enum)` → `StrEnum` — would change runtime behaviour
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/*" = ["B011"]

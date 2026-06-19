@@ -1,6 +1,5 @@
 from typing import Any
 
-
 ROADMAP_ITEMS: list[dict[str, Any]] = [
     {
         "id": "risk-first-evaluation",

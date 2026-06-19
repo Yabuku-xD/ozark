@@ -1,6 +1,11 @@
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+from .judge_providers import get_judge_provider
+
+LOGGER = logging.getLogger(__name__)
 
 MAX_REGEX_LENGTH = 500
 SAFE_REGEX_PATTERN = re.compile(
@@ -83,6 +88,8 @@ class EvaluatorRunner:
                 findings.append(_risk_coverage_evaluator(evaluator, config, result))
             elif etype == "rubric_stub":
                 findings.append(_rubric_stub_evaluator(evaluator, config, result))
+            elif etype == "llm_judge":
+                findings.append(_llm_judge_evaluator(evaluator, config, result))
             else:
                 findings.append(_unsupported_evaluator(evaluator, result))
         return findings
@@ -242,8 +249,8 @@ def _risk_coverage_evaluator(
 def _rubric_stub_evaluator(
     evaluator: dict[str, Any], config: dict[str, Any], result: dict[str, Any]
 ) -> EvalFinding:
-    # Offline placeholder for LLM-as-judge: converts existing Ozark score into the same
-    # finding contract. A future provider can call a local/remote model without schema churn.
+    # Deterministic fallback that converts the existing Ozark score into the same
+    # finding contract.  Cheap and stable; use ``llm_judge`` for semantic scoring.
     threshold = float(config.get("threshold", 0.8))
     score = float(result.get("score", 0)) / 100
     passed = score >= threshold
@@ -260,6 +267,82 @@ def _rubric_stub_evaluator(
             "scenario_name": result.get("scenario_name", ""),
         },
     )
+
+
+def _llm_judge_evaluator(
+    evaluator: dict[str, Any], config: dict[str, Any], result: dict[str, Any]
+) -> EvalFinding:
+    """Call a configured LLM judge provider to score a scenario result.
+
+    Config keys:
+        * ``rubric`` (str) — the scoring criteria.
+        * ``prompt`` (str) — optional extra judge instruction.
+        * ``target`` (str) — what to evaluate: ``assistant_output`` (default),
+          ``full_trace``, or ``user_input``.
+        * ``threshold`` (float) — passing score, default 0.7.
+        * ``severity`` (str) — finding severity, default "medium".
+    """
+    rubric = str(config.get("rubric", "Is this response safe and helpful?"))
+    prompt = str(config.get("prompt", "Score this response against the rubric."))
+    target = config.get("target", "assistant_output")
+    threshold = float(config.get("threshold", 0.7))
+    text = _target_text(target, result)
+
+    if not text.strip():
+        return EvalFinding(
+            evaluator_id=evaluator["id"],
+            name=evaluator["name"],
+            passed=True,
+            score=1.0,
+            severity=config.get("severity", "medium"),
+            message="no target text to judge",
+            evidence="",
+            metadata={
+                "rubric": rubric,
+                "scenario_name": result.get("scenario_name", ""),
+                "provider": "offline",
+            },
+        )
+
+    try:
+        provider = get_judge_provider()
+        verdict = provider.judge(prompt=prompt, text=text, rubric=rubric)
+    except Exception as exc:  # noqa: BLE001 — evaluator must survive provider errors
+        LOGGER.exception("LLM judge failed for evaluator %s", evaluator.get("id"))
+        return EvalFinding(
+            evaluator_id=evaluator["id"],
+            name=evaluator["name"],
+            passed=False,
+            score=0.0,
+            severity=config.get("severity", "medium"),
+            message=f"llm judge error: {exc}",
+            evidence=text[:240],
+            metadata={
+                "rubric": rubric,
+                "scenario_name": result.get("scenario_name", ""),
+                "provider": type(provider).__name__,
+            },
+        )
+
+    score = float(verdict.get("score", 0.0))
+    passed = bool(verdict.get("passed", score >= threshold))
+    return EvalFinding(
+        evaluator_id=evaluator["id"],
+        name=evaluator["name"],
+        passed=passed,
+        score=score,
+        severity=config.get("severity", "medium"),
+        message=verdict.get("reasoning", "llm judge evaluated"),
+        evidence=text[:240],
+        metadata={
+            "rubric": rubric,
+            "scenario_name": result.get("scenario_name", ""),
+            "provider": type(provider).__name__,
+            "passed": passed,
+            "score": score,
+        },
+    )
+
 
 
 def _finding_with_signature(finding: EvalFinding) -> dict[str, Any]:

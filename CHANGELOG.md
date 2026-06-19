@@ -8,4 +8,4 @@
 - Runtime guardrails including G0DM0D3 jailbreak detection
 - HTTP and stdio adapter for live agent testing
 - Coverage analysis and trace diffing
-- React web interface and macOS SwiftUI runner
+- React web dashboard (standalone, separate from landing page)

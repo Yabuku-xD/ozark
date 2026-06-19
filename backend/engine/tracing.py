@@ -1,5 +1,6 @@
-import json
 import hashlib
+import json
+
 from ..models import TraceEvent
 
 
